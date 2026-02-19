@@ -1,0 +1,25 @@
+# Деплой на сервер через GitHub Actions
+# Файл копируется в /opt/ac-api/docker-compose.yml
+# Переменные подставляются из /opt/ac-api/.env
+
+services:
+  ac-api:
+    image: ${IMAGE:-ghcr.io/changeme/ac-api}:${IMAGE_TAG:-latest}
+    container_name: ac-api
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ac-api.rule=Host(`${APP_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.ac-api.entrypoints=websecure"
+      - "traefik.http.routers.ac-api.tls=true"
+      - "traefik.http.routers.ac-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ac-api.loadbalancer.server.port=8080"
+    networks:
+      - traefik_net
+
+networks:
+  traefik_net:
+    external: true
