@@ -78,9 +78,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: server/deploy/docker-compose.yml
+          source: docker-compose.yml
           target: /opt/ac-api/
-          strip_components: 2
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
