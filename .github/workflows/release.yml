@@ -8,7 +8,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/ac-api
 
 jobs:
   build:
@@ -17,11 +16,13 @@ jobs:
     permissions:
       contents: read
       packages: write
-    outputs:
-      image_tag: sha-${{ github.sha }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set lowercase image name
+        id: vars
+        run: echo "image_name=$(echo '${{ github.repository_owner }}/ac-api' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -34,16 +35,16 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.vars.outputs.image_name }}
           tags: |
             type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Ac.Api/Dockerfile
+          context: ./server
+          file: ./server/Ac.Api/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -56,12 +57,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set lowercase image name
+        id: vars
+        run: echo "image_name=$(echo '${{ github.repository_owner }}/ac-api' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Prepare server directory
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          script_stop: true
           script: mkdir -p /opt/ac-api
 
       - name: Copy docker-compose to server
@@ -70,9 +77,9 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: deploy/docker-compose.yml
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          source: docker-compose.yml
           target: /opt/ac-api/
-          strip_components: 1
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -80,12 +87,14 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          script_stop: true
           script: |
             cd /opt/ac-api
 
             cat > .env << EOF
-            IMAGE=ghcr.io/${{ env.IMAGE_NAME }}
-            IMAGE_TAG=sha-${{ github.sha }}
+            IMAGE=ghcr.io/${{ steps.vars.outputs.image_name }}
+            IMAGE_TAG=latest
             APP_DOMAIN=${{ secrets.APP_DOMAIN }}
             EOF
 

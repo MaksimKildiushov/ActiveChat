@@ -1,0 +1,35 @@
+# Очистка старых образов в GitHub Container Registry (ghcr.io).
+# Встроенной политики хранения в GHCR нет — образы накапливаются без ограничений.
+# Этот workflow удаляет старые теги (sha-*), оставляя latest и последние 10 образов.
+#
+# Важно: в настройках пакета (Packages → ac-api → Package settings)
+# в блоке "Manage Actions access" добавьте этот репозиторий с ролью Admin.
+
+name: cleanup-packages
+
+on:
+  schedule:
+    # Каждое воскресенье в 03:00 UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    name: Cleanup GHCR images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    concurrency:
+      group: cleanup-packages
+
+    steps:
+      - name: Delete old images (keep latest + 3 recent)
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: ac-api
+          exclude-tags: latest
+          keep-n-tagged: 3
+          delete-untagged: true
+          dry-run: false
