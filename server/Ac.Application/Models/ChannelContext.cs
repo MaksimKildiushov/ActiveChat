@@ -4,6 +4,6 @@ namespace Ac.Application.Models;
 
 public record ChannelContext(
     Guid ChannelId,
-    Guid TenantId,
+    int TenantId,
     ChannelType ChannelType,
     string? SettingsJson);

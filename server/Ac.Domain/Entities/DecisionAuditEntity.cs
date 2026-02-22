@@ -1,16 +1,14 @@
+using Ac.Domain.Enums;
+using Ac.Domain.Entities.Abstract;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Ac.Domain.Enums;
 
 namespace Ac.Domain.Entities;
 
 [Table("DecisionAudits")]
-public class DecisionAuditEntity
+public class DecisionAuditEntity : IntEntity
 {
-    [Key]
-    public Guid Id { get; set; }
-
-    public Guid ConversationId { get; set; }
+    public int ConversationId { get; set; }
 
     // Конверсия enum → string настраивается глобально в ApiDbContext.ConfigureConventions
     [MaxLength(64)]

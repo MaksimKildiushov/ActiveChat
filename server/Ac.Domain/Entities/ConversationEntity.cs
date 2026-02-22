@@ -1,19 +1,15 @@
+using Ac.Domain.Entities.Abstract;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace Ac.Domain.Entities;
 
 [Table("Conversations")]
 [Index(nameof(TenantId), nameof(ChannelId), nameof(ExternalUserId), IsUnique = true)]
-public class ConversationEntity
+public class ConversationEntity : IntEntity
 {
-    [Key]
-    public Guid Id { get; set; }
-
-    public Guid TenantId { get; set; }
-
-    public Guid ChannelId { get; set; }
+    public int TenantId { get; set; }
 
     [Required]
     [MaxLength(256)]
@@ -25,6 +21,8 @@ public class ConversationEntity
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid ChannelId { get; set; }
 
     [ForeignKey(nameof(ChannelId))]
     public ChannelEntity Channel { get; set; } = null!;

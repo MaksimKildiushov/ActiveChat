@@ -1,17 +1,13 @@
+using Ac.Domain.Enums;
+using Ac.Domain.Entities.Abstract;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Ac.Domain.Enums;
 
 namespace Ac.Domain.Entities;
 
 [Table("Messages")]
-public class MessageEntity
+public class MessageEntity : IntEntity
 {
-    [Key]
-    public Guid Id { get; set; }
-
-    public Guid ConversationId { get; set; }
-
     // Конверсия enum → string настраивается глобально в ApiDbContext.ConfigureConventions
     [MaxLength(16)]
     public MessageDirection Direction { get; set; }
@@ -23,6 +19,8 @@ public class MessageEntity
     public string? RawJson { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
+    public int ConversationId { get; set; }
 
     [ForeignKey(nameof(ConversationId))]
     public ConversationEntity Conversation { get; set; } = null!;

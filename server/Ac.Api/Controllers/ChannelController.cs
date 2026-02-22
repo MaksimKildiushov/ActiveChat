@@ -1,25 +1,27 @@
 using Ac.Application.Pipeline;
+using Ac.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Ac.Api.Controllers;
 
 [ApiController]
-[Route("ingress")]
-public class IngressController(InboundPipeline pipeline, ILogger<IngressController> logger) : ControllerBase
+[Route("channel")]
+public class ChannelController(InboundPipeline pipeline, ILogger<ChannelController> logger) : ControllerBase
 {
     /// <summary>
     /// Принимает входящее сообщение от любого канала.
-    /// X-Channel-Token идентифицирует канал и тенанта.
+    /// <paramref name="channelToken"/> — GUID канала. ASP.NET Core парсит его автоматически;
+    /// невалидный формат возвращает 400 ещё до входа в метод.
     /// Body — произвольный JSON (парсинг делает соответствующий IInboundParser).
     /// </summary>
-    [HttpPost]
+    /// <example>POST /channel/a1b2c3d4-e5f6-7890-1234-5678abcdef01</example>
+    [HttpPost("{channelToken:guid}")]
     [Consumes("application/json")]
     public async Task<IActionResult> PostAsync(
-        [FromHeader(Name = "X-Channel-Token")] string? channelToken,
+        [FromRoute] Guid channelToken,
         CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(channelToken))
-            return BadRequest(new { error = "Header X-Channel-Token is required." });
+        var token = new ChannelToken(channelToken);
 
         using var reader = new StreamReader(Request.Body);
         var rawBody = await reader.ReadToEndAsync(ct);
@@ -29,12 +31,12 @@ public class IngressController(InboundPipeline pipeline, ILogger<IngressControll
 
         try
         {
-            await pipeline.ProcessAsync(channelToken, rawBody, ct);
+            await pipeline.ProcessAsync(token, rawBody, ct);
             return Ok();
         }
         catch (InvalidOperationException ex)
         {
-            logger.LogWarning(ex, "Pipeline rejected request for token={Token}", channelToken);
+            logger.LogWarning(ex, "Pipeline rejected request for token={Token}", token);
             return BadRequest(new { error = ex.Message });
         }
     }

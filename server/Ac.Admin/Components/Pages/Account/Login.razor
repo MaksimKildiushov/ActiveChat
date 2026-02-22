@@ -1,0 +1,83 @@
+@page "/account/login"
+@layout AuthLayout
+@attribute [AllowAnonymous]
+
+@inject NavigationManager Nav
+@inject SignInManager<UserEntity> SignInManager
+
+<PageTitle>Вход — ActiveChat Admin</PageTitle>
+
+<h5 class="text-center mb-4">Войти в систему</h5>
+
+@if (Registered)
+{
+    <div class="alert alert-success small py-2">
+        Аккаунт создан. Войдите.
+    </div>
+}
+
+@if (loginError is not null)
+{
+    <div class="alert alert-danger small py-2">@loginError</div>
+}
+
+<EditForm method="post" FormName="login" Model="Input" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label class="form-label">Email</label>
+        <InputText @bind-Value="Input.Email" type="email" class="form-control"
+                   autocomplete="username" placeholder="admin@example.com" />
+        <ValidationMessage For="() => Input.Email" class="text-danger small" />
+    </div>
+
+    <div class="mb-4">
+        <label class="form-label">Пароль</label>
+        <InputText @bind-Value="Input.Password" type="password" class="form-control"
+                   autocomplete="current-password" placeholder="••••••" />
+        <ValidationMessage For="() => Input.Password" class="text-danger small" />
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">Войти</button>
+</EditForm>
+
+<div class="mt-3 text-center small text-muted">
+    <a href="/account/register" class="text-decoration-none">Создать аккаунт</a>
+</div>
+
+@code {
+    private LoginInput _input = new();
+    [SupplyParameterFromForm(FormName = "login")]
+    private LoginInput Input { get => _input; set => _input = value ?? new(); }
+
+    [SupplyParameterFromQuery(Name = "registered")]
+    private bool Registered { get; set; }
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrl { get; set; }
+
+    private string? loginError;
+
+    private async Task HandleLogin()
+    {
+        var result = await SignInManager.PasswordSignInAsync(
+            Input.Email, Input.Password, isPersistent: false, lockoutOnFailure: false);
+
+        if (result.Succeeded)
+        {
+            Nav.NavigateTo(ReturnUrl ?? "/");
+            return;
+        }
+
+        loginError = "Неверный email или пароль.";
+    }
+
+    private sealed class LoginInput
+    {
+        [Required, EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        public string Password { get; set; } = "";
+    }
+}

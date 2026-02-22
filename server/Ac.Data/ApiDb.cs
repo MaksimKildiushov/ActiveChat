@@ -1,11 +1,14 @@
 using Ac.Domain.Entities;
 using Ac.Domain.Enums;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Ac.Data;
 
-public class ApiDbContext(DbContextOptions<ApiDbContext> options) : DbContext(options)
+public class ApiDb(DbContextOptions<ApiDb> options)
+    : IdentityDbContext<UserEntity, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<TenantEntity> Tenants => Set<TenantEntity>();
     public DbSet<ChannelEntity> Channels => Set<ChannelEntity>();
@@ -27,16 +30,55 @@ public class ApiDbContext(DbContextOptions<ApiDbContext> options) : DbContext(op
     /// <summary>
     /// Остаётся только то, что нельзя выразить атрибутами:
     ///   — UTC-конвертеры для DateTime / DateTimeOffset
+    ///   — схема auth для таблиц Identity
     /// </summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        #region UTC DateTime converters
+        #region Auth schema
 
-        // Все даты хранятся и читаются как UTC.
-        // DateTimeOffset добавлен отдельно — Npgsql сам мапит его на timestamptz (UTC),
-        // но конвертер гарантирует UTC-offset на уровне приложения независимо от провайдера.
+        modelBuilder.Entity<UserEntity>()             .ToTable("AspNetUsers",      "auth");
+        modelBuilder.Entity<IdentityRole<Guid>>()     .ToTable("AspNetRoles",      "auth");
+        modelBuilder.Entity<IdentityUserRole<Guid>>() .ToTable("AspNetUserRoles",  "auth");
+        modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("AspNetUserClaims", "auth");
+        modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("AspNetUserLogins", "auth");
+        modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("AspNetUserTokens", "auth");
+        modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("AspNetRoleClaims", "auth");
+
+        #endregion
+
+        #region AspNetUsers column order
+        // Type.GetProperties() не гарантирует порядок для наследуемых типов,
+        // поэтому порядок колонок задаётся явно через HasColumnOrder().
+
+        modelBuilder.Entity<UserEntity>(b =>
+        {
+            b.Property(u => u.Id)                  .HasColumnOrder(0);
+            b.Property(u => u.UserName)             .HasColumnOrder(1);
+            b.Property(u => u.NormalizedUserName)   .HasColumnOrder(2);
+            b.Property(u => u.Email)                .HasColumnOrder(3);
+            b.Property(u => u.NormalizedEmail)      .HasColumnOrder(4);
+            b.Property(u => u.EmailConfirmed)       .HasColumnOrder(5);
+            b.Property(u => u.DisplayName)          .HasColumnOrder(6);
+            b.Property(u => u.PasswordHash)         .HasColumnOrder(7);
+            b.Property(u => u.SecurityStamp)        .HasColumnOrder(8);
+            b.Property(u => u.ConcurrencyStamp)     .HasColumnOrder(9);
+            b.Property(u => u.PhoneNumber)          .HasColumnOrder(10);
+            b.Property(u => u.PhoneNumberConfirmed) .HasColumnOrder(11);
+            b.Property(u => u.TwoFactorEnabled)     .HasColumnOrder(12);
+            b.Property(u => u.LockoutEnd)           .HasColumnOrder(13);
+            b.Property(u => u.LockoutEnabled)       .HasColumnOrder(14);
+            b.Property(u => u.AccessFailedCount)    .HasColumnOrder(15);
+            b.Property(u => u.AuthorId)             .HasColumnOrder(16);
+            b.Property(u => u.Created)              .HasColumnOrder(17);
+            b.Property(u => u.Modified)             .HasColumnOrder(18);
+            b.Property(u => u.ModifierId)           .HasColumnOrder(19);
+        });
+
+        #endregion
+
+        #region UTC DateTime converters
 
         var utcDateTimeConverter = new ValueConverter<DateTime, DateTime>(
             v => v.Kind != DateTimeKind.Utc ? v.ToUniversalTime() : v,

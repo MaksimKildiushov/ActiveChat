@@ -26,7 +26,6 @@ public class ConversationService(
 
         ConversationEntity conversation = new()
         {
-            Id = Guid.NewGuid(),
             TenantId = channelCtx.TenantId,
             ChannelId = channelCtx.ChannelId,
             ExternalUserId = externalUserId,
@@ -38,14 +37,13 @@ public class ConversationService(
     }
 
     public async Task SaveInteractionAsync(
-        Guid conversationId,
+        int conversationId,
         UnifiedInboundMessage inbound,
         DecisionResult decision,
         CancellationToken ct = default)
     {
         await messages.AddAsync(new MessageEntity
         {
-            Id = Guid.NewGuid(),
             ConversationId = conversationId,
             Direction = MessageDirection.Inbound,
             Text = inbound.Text,
@@ -55,7 +53,6 @@ public class ConversationService(
 
         await audits.AddAsync(new DecisionAuditEntity
         {
-            Id = Guid.NewGuid(),
             ConversationId = conversationId,
             StepKind = decision.StepKind,
             Confidence = decision.Confidence,

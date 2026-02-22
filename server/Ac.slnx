@@ -1,6 +1,13 @@
 <Solution>
+  <Folder Name="/Ac/">
+    <Project Path="Ac.Abstractions/Ac.Abstractions.csproj" Id="e61bfd3b-d044-44fc-b35f-885a2c604b9c" />
+    <Project Path="Ac.Application/Ac.Application.csproj" />
+    <Project Path="Ac.Data/Ac.Data.csproj" />
+    <Project Path="Ac.Domain/Ac.Domain.csproj" />
+  </Folder>
+  <Folder Name="/Extensions/">
+    <Project Path="Shared.Extensions/Shared.Extensions.csproj" Id="31952ad0-1f9f-4b94-9db3-03fb4fd81f3b" />
+  </Folder>
+  <Project Path="Ac.Admin/Ac.Admin.csproj" Id="0382217f-f528-496a-bc6e-48f44362930c" />
   <Project Path="Ac.Api/Ac.Api.csproj" />
-  <Project Path="Ac.Application/Ac.Application.csproj" />
-  <Project Path="Ac.Data/Ac.Data.csproj" />
-  <Project Path="Ac.Domain/Ac.Domain.csproj" />
 </Solution>

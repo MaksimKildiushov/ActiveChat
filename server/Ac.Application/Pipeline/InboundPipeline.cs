@@ -1,6 +1,7 @@
 using Ac.Application.Interfaces;
 using Ac.Application.Models;
 using Ac.Application.Services;
+using Ac.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
 namespace Ac.Application.Pipeline;
@@ -14,7 +15,7 @@ public class InboundPipeline(
     IntentDispatcher intentDispatcher,
     ILogger<InboundPipeline> logger)
 {
-    public async Task ProcessAsync(string channelToken, string rawJson, CancellationToken ct = default)
+    public async Task ProcessAsync(ChannelToken channelToken, string rawJson, CancellationToken ct = default)
     {
         // 1. Resolve token -> ChannelContext
         var channelCtx = await tokenResolver.ResolveAsync(channelToken, ct);

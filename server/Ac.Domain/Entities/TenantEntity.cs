@@ -1,14 +1,12 @@
+using Ac.Domain.Entities.Abstract;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Ac.Domain.Entities;
 
 [Table("Tenants")]
-public class TenantEntity
+public class TenantEntity : IntEntity
 {
-    [Key]
-    public Guid Id { get; set; }
-
     [Required]
     [MaxLength(256)]
     public string Name { get; set; } = string.Empty;
