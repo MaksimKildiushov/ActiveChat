@@ -7,7 +7,7 @@ namespace Ac.Data.Repositories;
 public class ConversationRepository(ApiDb db) : IConversationRepository
 {
     public Task<ConversationEntity?> FindAsync(
-        int tenantId, Guid channelId, string externalUserId, CancellationToken ct = default)
+        int tenantId, int channelId, string externalUserId, CancellationToken ct = default)
         => db.Conversations.FirstOrDefaultAsync(
             c => c.TenantId == tenantId
                  && c.ChannelId == channelId

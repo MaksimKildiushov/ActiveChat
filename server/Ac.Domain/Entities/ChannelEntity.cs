@@ -8,9 +8,9 @@ namespace Ac.Domain.Entities;
 
 [Table("Channels")]
 [Index(nameof(Token), IsUnique = true)]
-public class ChannelEntity : KeyEntity<Guid>
+public class ChannelEntity : IntEntity
 {
-    // Конверсия Enum → Guid настраивается глобально в ApiDbContext.ConfigureConventions
+    // Конверсия Enum → string настраивается глобально в ApiDb.ConfigureConventions
     [MaxLength(64)]
     public ChannelType ChannelType { get; set; }
 

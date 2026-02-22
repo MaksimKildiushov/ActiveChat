@@ -3,6 +3,7 @@ using System;
 using Ac.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Ac.Data.Migrations
 {
     [DbContext(typeof(ApiDb))]
-    partial class ApiDbModelSnapshot : ModelSnapshot
+    [Migration("20260222095248_AddTenantRoles")]
+    partial class AddTenantRoles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -24,11 +27,9 @@ namespace Ac.Data.Migrations
 
             modelBuilder.Entity("Ac.Domain.Entities.ChannelEntity", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("AuthorId")
                         .HasColumnType("uuid");
@@ -84,8 +85,8 @@ namespace Ac.Data.Migrations
                     b.Property<Guid>("AuthorId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("ChannelId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("ChannelId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone");
@@ -649,13 +650,12 @@ namespace Ac.Data.Migrations
                     b.HasOne("Ac.Domain.Entities.UserEntity", "Author")
                         .WithMany()
                         .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Ac.Domain.Entities.UserEntity", "Modifier")
                         .WithMany()
-                        .HasForeignKey("ModifierId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("ModifierId");
 
                     b.HasOne("Ac.Domain.Entities.TenantEntity", "Tenant")
                         .WithMany("Users")

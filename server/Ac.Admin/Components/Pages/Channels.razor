@@ -1,0 +1,243 @@
+@page "/channels"
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject ApiDb Db
+@inject IJSRuntime JS
+@inject ICurrentUserSetter CurrentUserSetter
+
+<PageTitle>Каналы — ActiveChat Admin</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0">Каналы</h4>
+    <button class="btn btn-primary btn-sm" @onclick="ShowForm">
+        <span class="bi bi-plus-lg me-1"></span> Создать канал
+    </button>
+</div>
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible small py-2">
+        @successMessage
+        <button type="button" class="btn-close btn-sm" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+@if (formVisible)
+{
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Новый канал</div>
+        <div class="card-body">
+            @if (formError is not null)
+            {
+                <div class="alert alert-danger small py-2">@formError</div>
+            }
+
+            <EditForm Model="Input" OnValidSubmit="HandleCreate">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label">Тенант</label>
+                    <InputSelect @bind-Value="Input.TenantId" class="form-select">
+                        <option value="0">— выберите тенанта —</option>
+                        @foreach (var t in tenants)
+                        {
+                            <option value="@t.Id">@t.Inn</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => Input.TenantId" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Тип канала</label>
+                    <InputSelect @bind-Value="Input.ChannelType" class="form-select">
+                        @foreach (var ct in Enum.GetValues<ChannelType>())
+                        {
+                            <option value="@ct">@ct</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="mb-4 form-check">
+                    <InputCheckbox @bind-Value="Input.IsActive" class="form-check-input" id="chkActive" />
+                    <label class="form-check-label" for="chkActive">Активен</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Создать
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="HideForm">Отмена</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header fw-semibold">Список каналов</div>
+    @if (channels.Count == 0)
+    {
+        <div class="card-body text-muted small">Каналы ещё не созданы.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:3rem">#</th>
+                        <th>Тенант (ИНН)</th>
+                        <th>Тип</th>
+                        <th>Webhook-токен</th>
+                        <th style="width:6rem">Активен</th>
+                        <th>Создан</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ch in channels)
+                    {
+                        <tr>
+                            <td class="text-muted">@ch.Id</td>
+                            <td>@(ch.Tenant?.Inn ?? "—")</td>
+                            <td><span class="badge bg-secondary">@ch.ChannelType</span></td>
+                            <td>
+                                <div class="input-group input-group-sm" style="max-width:340px">
+                                    <input type="text" class="form-control form-control-sm font-monospace"
+                                           value="@ch.Token.ToString("N")" readonly />
+                                    <button class="btn btn-outline-secondary btn-sm"
+                                            title="Скопировать токен"
+                                            @onclick='() => CopyToClipboard(ch.Token.ToString("N"))'>
+                                        <span class="bi bi-clipboard"></span>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                @if (ch.IsActive)
+                                {
+                                    <span class="badge bg-success">Да</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Нет</span>
+                                }
+                            </td>
+                            <td class="text-muted small">@ch.Created.ToString("dd.MM.yyyy HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = null!;
+
+    private CreateChannelInput Input { get; set; } = new();
+    private List<ChannelEntity> channels = [];
+    private List<TenantEntity> tenants = [];
+    private bool formVisible;
+    private bool isSubmitting;
+    private string? formError;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask;
+        var idStr = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(idStr, out var userId))
+            CurrentUserSetter.SetCurrentUser(userId);
+        await LoadChannelsAsync();
+        await LoadTenantsAsync();
+    }
+
+    private async Task LoadChannelsAsync()
+    {
+        channels = await Db.Channels
+            .Include(c => c.Tenant)
+            .OrderByDescending(c => c.Created)
+            .ToListAsync();
+    }
+
+    private async Task LoadTenantsAsync()
+    {
+        tenants = await Db.Tenants
+            .OrderBy(t => t.Inn)
+            .ToListAsync();
+    }
+
+    private void ShowForm()
+    {
+        Input = new();
+        formError = null;
+        formVisible = true;
+    }
+
+    private void HideForm()
+    {
+        formVisible = false;
+        formError = null;
+    }
+
+    private async Task HandleCreate()
+    {
+        if (Input.TenantId == 0)
+        {
+            formError = "Выберите тенанта.";
+            return;
+        }
+
+        isSubmitting = true;
+        formError = null;
+
+        try
+        {
+            var authState = await AuthStateTask;
+            var adminId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var authorGuid = adminId is not null && Guid.TryParse(adminId, out var g) ? g : Guid.Empty;
+
+            var channel = new ChannelEntity
+            {
+                Token = Guid.NewGuid(),
+                TenantId = Input.TenantId,
+                ChannelType = Input.ChannelType,
+                IsActive = Input.IsActive,
+                AuthorId = authorGuid,
+                Created = DateTime.UtcNow,
+            };
+
+            Db.Channels.Add(channel);
+            await Db.SaveChangesAsync();
+
+            successMessage = $"Канал {channel.ChannelType} для тенанта создан. Токен: {channel.Token:N}";
+            formVisible = false;
+            Input = new();
+            await LoadChannelsAsync();
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private sealed class CreateChannelInput
+    {
+        [Range(1, int.MaxValue, ErrorMessage = "Выберите тенанта")]
+        public int TenantId { get; set; }
+
+        public ChannelType ChannelType { get; set; } = ChannelType.Webhook;
+
+        public bool IsActive { get; set; } = true;
+    }
+}

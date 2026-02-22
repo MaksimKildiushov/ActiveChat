@@ -4,6 +4,7 @@
 
 @inject NavigationManager Nav
 @inject SignInManager<UserEntity> SignInManager
+@inject UserManager<UserEntity> UserManager
 
 <PageTitle>Вход — ActiveChat Admin</PageTitle>
 
@@ -65,6 +66,14 @@
 
         if (result.Succeeded)
         {
+            var user = await UserManager.FindByEmailAsync(Input.Email);
+            if (user is null || !await UserManager.IsInRoleAsync(user, "Admin"))
+            {
+                await SignInManager.SignOutAsync();
+                loginError = "Доступ разрешён только администраторам.";
+                return;
+            }
+
             Nav.NavigateTo(ReturnUrl ?? "/");
             return;
         }

@@ -1,3 +1,4 @@
+using Ac.Api.Filters;
 using Ac.Application.Extensions;
 using Ac.Data;
 using Ac.Data.Accessors;
@@ -48,6 +49,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration cfg)
 
     services.AddControllers();
     services.AddOpenApi();
+    services.AddScoped<ChannelTokenAuthFilter>();
 
     services.AddApplication();
     services.AddInfrastructure();

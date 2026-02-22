@@ -8,6 +8,12 @@ public class UserEntity : IdentityUser<Guid>, IBaseEntity
 {
     public string? DisplayName { get; set; }
 
+    /// <summary>
+    /// Членство в тенантах. Пусто у системных и admin-аккаунтов.
+    /// </summary>
+    [InverseProperty(nameof(TenantUserEntity.User))]
+    public ICollection<TenantUserEntity> TenantMemberships { get; set; } = [];
+
     public Guid AuthorId { get; set; }
 
     [ForeignKey(nameof(AuthorId))]

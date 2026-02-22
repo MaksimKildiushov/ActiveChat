@@ -1,4 +1,18 @@
 @inherits LayoutComponentBase
+@inject ICurrentUserSetter CurrentUserSetter
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask;
+        var idStr = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(idStr, out var userId))
+            CurrentUserSetter.SetCurrentUser(userId);
+    }
+}
 
 <div class="page">
     <div class="sidebar">

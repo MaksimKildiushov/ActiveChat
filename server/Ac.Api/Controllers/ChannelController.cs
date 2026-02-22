@@ -1,3 +1,4 @@
+using Ac.Api.Filters;
 using Ac.Application.Pipeline;
 using Ac.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +7,7 @@ namespace Ac.Api.Controllers;
 
 [ApiController]
 [Route("channel")]
+[ServiceFilter(typeof(ChannelTokenAuthFilter))]
 public class ChannelController(InboundPipeline pipeline, ILogger<ChannelController> logger) : ControllerBase
 {
     /// <summary>

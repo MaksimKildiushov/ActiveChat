@@ -2,7 +2,7 @@
 Add-Migration "Initial" -o Migrations -Project Ac.Data -StartupProject Ac.Api
 
 # Создание миграций на базе измененых моделей.
-Add-Migration "AddSystemAccounts" -o Migrations -Project Ac.Data -StartupProject Ac.Api
+Add-Migration "UpdateChannelId" -o Migrations -Project Ac.Data -StartupProject Ac.Api
 
 
 # Применение всех изменений к DB.
@@ -15,7 +15,7 @@ Add-Migration "AddProfile_Step3" -o Migrations
 Add-Migration "AddProfile_Step4" -o Migrations
 
 # Простой откат еще не примененной (без update-database) миграции. Например, видим что криво сгенерилось или что-то забыли.
-Remove-Migration
+Remove-Migration -Project Ac.Data -StartupProject Ac.Api
 
 # Откат миграций и/или замена текущей миграции.
 # Выбраем последнюю удачную миграцию.
@@ -24,7 +24,7 @@ Remove-Migration
 2) Remove-Migration -Project Ac.Data -StartupProject Ac.Api
 # *Если надо применить новую миграцию (если нет, то делаем code reset).
 3) Add-Migration "AddNewPaymentVersion" -o Migrations
-4) update-database
+4) update-database -Project Ac.Data -StartupProject Ac.Api
 
 
 

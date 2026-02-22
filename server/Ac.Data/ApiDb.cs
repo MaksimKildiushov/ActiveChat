@@ -11,6 +11,7 @@ public class ApiDb(DbContextOptions<ApiDb> options)
     : IdentityDbContext<UserEntity, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<TenantEntity> Tenants => Set<TenantEntity>();
+    public DbSet<TenantUserEntity> TenantUsers => Set<TenantUserEntity>();
     public DbSet<ChannelEntity> Channels => Set<ChannelEntity>();
     public DbSet<ConversationEntity> Conversations => Set<ConversationEntity>();
     public DbSet<MessageEntity> Messages => Set<MessageEntity>();
@@ -25,6 +26,7 @@ public class ApiDb(DbContextOptions<ApiDb> options)
         configurationBuilder.Properties<ChannelType>().HaveConversion<string>();
         configurationBuilder.Properties<StepKind>().HaveConversion<string>();
         configurationBuilder.Properties<MessageDirection>().HaveConversion<string>();
+        configurationBuilder.Properties<TenantRole>().HaveConversion<string>();
     }
 
     /// <summary>
@@ -35,6 +37,28 @@ public class ApiDb(DbContextOptions<ApiDb> options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        #region TenantUsers composite PK
+
+        modelBuilder.Entity<TenantUserEntity>()
+            .HasKey(tu => new { tu.TenantId, tu.UserId });
+
+        // TenantUserEntity наследует BaseEntity, у которой Author/Modifier → UserEntity,
+        // плюс собственная навигация User → UserEntity.
+        // Три FK к одной таблице — EF Core не разрешает неоднозначность без явной конфигурации.
+        modelBuilder.Entity<TenantUserEntity>()
+            .HasOne(e => e.Author)
+            .WithMany()
+            .HasForeignKey(e => e.AuthorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TenantUserEntity>()
+            .HasOne(e => e.Modifier)
+            .WithMany()
+            .HasForeignKey(e => e.ModifierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        #endregion
 
         #region Auth schema
 

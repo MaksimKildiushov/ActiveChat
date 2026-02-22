@@ -22,7 +22,7 @@ public class ConversationEntity : IntEntity
 
     public DateTimeOffset UpdatedAt { get; set; }
 
-    public Guid ChannelId { get; set; }
+    public int ChannelId { get; set; }
 
     [ForeignKey(nameof(ChannelId))]
     public ChannelEntity Channel { get; set; } = null!;

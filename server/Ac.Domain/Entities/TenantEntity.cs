@@ -9,7 +9,9 @@ public class TenantEntity : IntEntity
 {
     [Required]
     [MaxLength(256)]
-    public string Name { get; set; } = string.Empty;
+    public string Inn { get; set; } = string.Empty;
 
     public ICollection<ChannelEntity> Channels { get; set; } = [];
+
+    public ICollection<TenantUserEntity> Users { get; set; } = [];
 }

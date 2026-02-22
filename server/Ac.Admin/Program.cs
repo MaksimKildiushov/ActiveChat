@@ -1,5 +1,6 @@
 using Ac.Admin.Components;
 using Ac.Data;
+using Ac.Data.Accessors;
 using Ac.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -21,8 +22,26 @@ builder.Services.AddRazorComponents()
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddDbContext<ApiDb>(opts =>
-    opts.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+#region Infra
+
+// В Blazor Server HttpContext недоступен во время SignalR-вызовов.
+// ScopedCurrentUser инициализируется в MainLayout из CascadingAuthenticationState.
+builder.Services.AddScoped<ScopedCurrentUser>();
+builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<ScopedCurrentUser>());
+builder.Services.AddScoped<ICurrentUserSetter>(sp => sp.GetRequiredService<ScopedCurrentUser>());
+builder.Services.AddSingleton<IDateTimeProvider, SystemClock>();
+builder.Services.AddScoped<AuditingInterceptor>();
+
+// Использовать только для кеша токенов на 5 минут. В остальном - подход stateless!
+builder.Services.AddDistributedMemoryCache();
+
+builder.Services.AddDbContext<ApiDb>((sp, opts) =>
+{
+    opts.UseNpgsql(builder.Configuration.GetConnectionString("Default"));
+    opts.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
+});
+
+#endregion
 
 builder.Services.AddIdentity<UserEntity, IdentityRole<Guid>>(options =>
 {

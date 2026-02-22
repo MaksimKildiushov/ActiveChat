@@ -1,0 +1,275 @@
+@page "/tenants"
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject ApiDb Db
+@inject UserManager<UserEntity> UserManager
+@inject RoleManager<IdentityRole<Guid>> RoleManager
+@inject ICurrentUserSetter CurrentUserSetter
+
+@using Ac.Domain.Enums
+
+<PageTitle>Тенанты — ActiveChat Admin</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0">Тенанты</h4>
+    <button class="btn btn-primary btn-sm" @onclick="ShowForm">
+        <span class="bi bi-plus-lg me-1"></span> Создать тенант
+    </button>
+</div>
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible small py-2">
+        @successMessage
+        <button type="button" class="btn-close btn-sm" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+@if (formVisible)
+{
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Новый тенант</div>
+        <div class="card-body">
+            @if (formError is not null)
+            {
+                <div class="alert alert-danger small py-2">@formError</div>
+            }
+
+            <EditForm Model="Input" OnValidSubmit="HandleCreate">
+                <DataAnnotationsValidator />
+
+                <h6 class="text-muted mb-3">Организация</h6>
+
+                <div class="mb-3">
+                    <label class="form-label">ИНН</label>
+                    <InputText @bind-Value="Input.Inn" class="form-control" placeholder="1234567890" />
+                    <ValidationMessage For="() => Input.Inn" class="text-danger small" />
+                </div>
+
+                <hr class="my-3" />
+                <h6 class="text-muted mb-3">Учётная запись клиента</h6>
+
+                <div class="mb-3">
+                    <label class="form-label">Имя</label>
+                    <InputText @bind-Value="Input.DisplayName" class="form-control" placeholder="Иван Иванов" />
+                    <ValidationMessage For="() => Input.DisplayName" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <InputText @bind-Value="Input.Email" type="email" class="form-control" placeholder="user@example.com" />
+                    <ValidationMessage For="() => Input.Email" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Пароль <span class="text-muted small">(не нужен, если пользователь уже существует)</span></label>
+                    <InputText @bind-Value="Input.Password" type="password" class="form-control" placeholder="Минимум 6 символов" />
+                    <ValidationMessage For="() => Input.Password" class="text-danger small" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Подтвердите пароль</label>
+                    <InputText @bind-Value="Input.ConfirmPassword" type="password" class="form-control" placeholder="••••••" />
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger small" />
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Создать
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="HideForm">Отмена</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header fw-semibold">Список тенантов</div>
+    @if (tenants.Count == 0)
+    {
+        <div class="card-body text-muted small">Тенанты ещё не созданы.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>ИНН</th>
+                        <th>Дата создания</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in tenants)
+                    {
+                        <tr>
+                            <td class="text-muted">@t.Id</td>
+                            <td>@t.Inn</td>
+                            <td class="text-muted small">@t.Created.ToString("dd.MM.yyyy HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = null!;
+
+    private CreateTenantInput Input { get; set; } = new();
+    private List<TenantEntity> tenants = [];
+    private bool formVisible;
+    private bool isSubmitting;
+    private string? formError;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask;
+        var idStr = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(idStr, out var userId))
+            CurrentUserSetter.SetCurrentUser(userId);
+        await LoadTenantsAsync();
+    }
+
+    private async Task LoadTenantsAsync()
+    {
+        tenants = await Db.Tenants
+            .OrderByDescending(t => t.Created)
+            .ToListAsync();
+    }
+
+    private void ShowForm()
+    {
+        Input = new();
+        formError = null;
+        formVisible = true;
+    }
+
+    private void HideForm()
+    {
+        formVisible = false;
+        formError = null;
+    }
+
+    private async Task HandleCreate()
+    {
+        isSubmitting = true;
+        formError = null;
+
+        try
+        {
+            var email = Input.Email.Trim();
+
+            var existingUser = await UserManager.FindByEmailAsync(email);
+            if (existingUser is null)
+            {
+                if (string.IsNullOrWhiteSpace(Input.Password))
+                {
+                    formError = "Пользователь не найден — введите пароль для создания новой учётной записи.";
+                    return;
+                }
+                if (Input.Password != Input.ConfirmPassword)
+                {
+                    formError = "Пароли не совпадают.";
+                    return;
+                }
+            }
+
+            var authState = await AuthStateTask;
+            var adminId = authState.User.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var authorGuid = adminId is not null && Guid.TryParse(adminId, out var g) ? g : Guid.Empty;
+
+            var tenant = new TenantEntity
+            {
+                Inn = Input.Inn.Trim(),
+                AuthorId = authorGuid,
+                Created = DateTime.UtcNow,
+            };
+
+            Db.Tenants.Add(tenant);
+            await Db.SaveChangesAsync();
+
+            string userStatus;
+            UserEntity user;
+
+            if (existingUser is not null)
+            {
+                user = existingUser;
+                userStatus = $"существующий пользователь {user.Email} привязан";
+            }
+            else
+            {
+                user = new UserEntity
+                {
+                    UserName = email,
+                    Email = email,
+                    DisplayName = Input.DisplayName.Trim(),
+                    AuthorId = authorGuid,
+                    Created = DateTime.UtcNow,
+                };
+
+                var createResult = await UserManager.CreateAsync(user, Input.Password);
+                if (!createResult.Succeeded)
+                {
+                    Db.Tenants.Remove(tenant);
+                    await Db.SaveChangesAsync();
+                    formError = string.Join(" ", createResult.Errors.Select(e => e.Description));
+                    return;
+                }
+
+                userStatus = $"создан новый пользователь {user.Email}";
+            }
+
+            const string identityRole = "TenantUser";
+            if (!await RoleManager.RoleExistsAsync(identityRole))
+                await RoleManager.CreateAsync(new IdentityRole<Guid> { Name = identityRole });
+            if (!await UserManager.IsInRoleAsync(user, identityRole))
+                await UserManager.AddToRoleAsync(user, identityRole);
+
+            Db.TenantUsers.Add(new TenantUserEntity
+            {
+                TenantId = tenant.Id,
+                UserId = user.Id,
+                Role = TenantRole.Owner,
+            });
+            await Db.SaveChangesAsync();
+
+            successMessage = $"Тенант «{tenant.Inn}» создан, {userStatus}.";
+            formVisible = false;
+            Input = new();
+            await LoadTenantsAsync();
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private sealed class CreateTenantInput
+    {
+        [Required(ErrorMessage = "Введите ИНН")]
+        [MaxLength(20, ErrorMessage = "ИНН не может быть длиннее 20 символов")]
+        public string Inn { get; set; } = "";
+
+        [Required(ErrorMessage = "Введите имя")]
+        public string DisplayName { get; set; } = "";
+
+        [Required(ErrorMessage = "Введите email"), EmailAddress(ErrorMessage = "Некорректный email")]
+        public string Email { get; set; } = "";
+
+        [MinLength(6, ErrorMessage = "Минимум 6 символов")]
+        public string? Password { get; set; }
+
+        public string? ConfirmPassword { get; set; }
+    }
+}

@@ -1,5 +1,5 @@
 ﻿using Ac.Data.Accessors;
-using Ac.Domain.Entities.Abstract;
+using Libraries.Abstractions.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace Ac.Data;
@@ -15,7 +15,7 @@ public sealed class AuditingInterceptor(
         var now = clock.UtcNow;
         var user = currentUser.UserId;
 
-        foreach (var entry in context.ChangeTracker.Entries<BaseEntity>())
+        foreach (var entry in context.ChangeTracker.Entries<IBaseEntity>())
         {
             if (entry.State == EntityState.Added)
             {
