@@ -2,7 +2,7 @@
 Add-Migration "Initial" -o Migrations -Project Ac.Data -StartupProject Ac.Api
 
 # Создание миграций на базе измененых моделей.
-Add-Migration "AspUserColumnOrder" -o Migrations -Project Ac.Data -StartupProject Ac.Api
+Add-Migration "AddSystemAccounts" -o Migrations -Project Ac.Data -StartupProject Ac.Api
 
 
 # Применение всех изменений к DB.
