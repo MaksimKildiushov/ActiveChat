@@ -1,4 +1,4 @@
-using Ac.Application.Interfaces;
+using Ac.Application.Contracts.Interfaces;
 using Ac.Domain.Enums;
 
 namespace Ac.Application.Services;

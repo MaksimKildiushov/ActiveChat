@@ -209,6 +209,12 @@
             }
             else
             {
+                if (string.IsNullOrWhiteSpace(Input.Password))
+                {
+                    formError = "Пользователь не найден — введите пароль для создания новой учётной записи.";
+                    return;
+                }
+
                 user = new UserEntity
                 {
                     UserName = email,

@@ -12,6 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Ac.Application.Contracts\Ac.Application.Contracts.csproj" />
     <ProjectReference Include="..\Ac.Domain\Ac.Domain.csproj" />
+    <ProjectReference Include="..\Connections.JivoSite\Connections.JivoSite.csproj" />
   </ItemGroup>
 </Project>

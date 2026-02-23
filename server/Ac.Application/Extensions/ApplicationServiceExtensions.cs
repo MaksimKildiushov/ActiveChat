@@ -1,20 +1,23 @@
 using Ac.Application.Adapters;
+using Ac.Application.Contracts.Interfaces;
 using Ac.Application.Handlers;
 using Ac.Application.Interfaces;
 using Ac.Application.Parsers;
 using Ac.Application.Pipeline;
 using Ac.Application.Services;
+using Connections.JivoSite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ac.Application.Extensions;
 
 public static class ApplicationServiceExtensions
 {
-    public static IServiceCollection AddApplication(this IServiceCollection services)
+    public static IServiceCollection AddDi(this IServiceCollection services)
     {
         // Parsers — добавление нового канала: новый IInboundParser + IChannelDeliveryAdapter
         services.AddSingleton<IInboundParser, TelegramLikeParser>();
         services.AddSingleton<IInboundParser, WebhookParser>();
+        services.AddSingleton<IInboundParser, JivoInboundParser>();
         services.AddSingleton<InboundParserRegistry>();
 
         // Adapters

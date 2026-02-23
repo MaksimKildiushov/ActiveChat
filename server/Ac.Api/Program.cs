@@ -51,7 +51,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration cfg)
     services.AddOpenApi();
     services.AddScoped<ChannelTokenAuthFilter>();
 
-    services.AddApplication();
+    services.AddDi();
     services.AddInfrastructure();
 
     #endregion
