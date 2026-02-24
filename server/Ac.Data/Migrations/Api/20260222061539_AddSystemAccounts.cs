@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Ac.Data.Migrations
+namespace Ac.Data.Migrations.Api
 {
     /// <inheritdoc />
     public partial class AddSystemAccounts : Migration

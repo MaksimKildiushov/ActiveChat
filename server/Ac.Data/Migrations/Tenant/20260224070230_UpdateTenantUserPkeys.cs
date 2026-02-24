@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace Ac.Data.Migrations.TenantDbMigrations
+namespace Ac.Data.Migrations.Tenant
 {
     /// <inheritdoc />
     public partial class UpdateTenantUserPkeys : Migration

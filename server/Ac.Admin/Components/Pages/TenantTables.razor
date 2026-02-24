@@ -9,6 +9,13 @@
 
 <div class="d-flex align-items-center justify-content-between mb-4">
     <h4 class="mb-0">Таблицы тенанта</h4>
+    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CheckAllMigrationsAsync" disabled="@(isLoading || isChecking)">
+        @if (isChecking)
+        {
+            <span class="spinner-border spinner-border-sm me-1"></span>
+        }
+        Проверить актуальность миграций
+    </button>
 </div>
 
 <p class="text-muted small mb-3">
@@ -64,21 +71,21 @@
                             <td>@row.Inn</td>
                             <td><code>@row.SchemaName</code></td>
                             <td>
-                                @if (row.SchemaReady)
-                                {
-                                    <span class="badge bg-success">Готова</span>
-                                }
-                                else
+                                @if (!row.SchemaReady)
                                 {
                                     <span class="badge bg-secondary">Не создана</span>
                                 }
-                            </td>
-                            <td>
-                                @if (row.SchemaReady)
+                                else if (row.MigrationUpToDate == false)
                                 {
-                                    <span class="text-muted small">—</span>
+                                    <span class="badge bg-warning text-dark">Неактуально</span>
                                 }
                                 else
+                                {
+                                    <span class="badge bg-success">Готова</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!row.SchemaReady)
                                 {
                                     <button type="button"
                                             class="btn btn-outline-primary btn-sm"
@@ -91,6 +98,23 @@
                                         Создать схему и применить миграции
                                     </button>
                                 }
+                                else if (row.MigrationUpToDate == false)
+                                {
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm"
+                                            disabled="@(creatingSchema == row.SchemaName)"
+                                            @onclick="@(() => CreateSchemaAsync(row.SchemaName))">
+                                        @if (creatingSchema == row.SchemaName)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                        }
+                                        Применить миграции
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">—</span>
+                                }
                             </td>
                         </tr>
                     }
@@ -101,10 +125,11 @@
 </div>
 
 @code {
-    private sealed record Row(int TenantId, string Inn, string SchemaName, bool SchemaReady);
+    private sealed record Row(int TenantId, string Inn, string SchemaName, bool SchemaReady, bool? MigrationUpToDate);
 
     private List<Row> rows = [];
     private bool isLoading = true;
+    private bool isChecking;
     private string? creatingSchema;
     private string? successMessage;
     private string? errorMessage;
@@ -139,12 +164,42 @@
             var readySchemas = await TenantMigrationRunner.GetFullyMigratedTenantSchemaNamesAsync(connStr);
 
             rows = tenants
-                .Select(t => new Row(t.Id, t.Inn!, "t_" + t.Inn, readySchemas.Contains("t_" + t.Inn)))
+                .Select(t => new Row(t.Id, t.Inn!, "t_" + t.Inn, readySchemas.Contains("t_" + t.Inn), null))
                 .ToList();
         }
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task CheckAllMigrationsAsync()
+    {
+        var connStr = Configuration.GetConnectionString("Default");
+        if (string.IsNullOrEmpty(connStr))
+        {
+            errorMessage = "Строка подключения не задана.";
+            return;
+        }
+
+        isChecking = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var statuses = await TenantMigrationRunner.GetTenantMigrationStatusAsync(connStr);
+            var bySchema = statuses.ToDictionary(r => r.Schema, r => r.IsUpToDate, StringComparer.OrdinalIgnoreCase);
+            rows = rows.Select(r => r with { MigrationUpToDate = r.SchemaReady && bySchema.TryGetValue(r.SchemaName, out var up) ? up : (bool?)null }).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isChecking = false;
+            StateHasChanged();
         }
     }
 
@@ -168,8 +223,9 @@
 
             if (result.Success)
             {
-                successMessage = $"Схема «{schemaName}» создана. {result.Message}";
+                successMessage = $"Схема «{schemaName}»: {result.Message}";
                 await LoadAsync();
+                await CheckAllMigrationsAsync();
             }
             else
             {

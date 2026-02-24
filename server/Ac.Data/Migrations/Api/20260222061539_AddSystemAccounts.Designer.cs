@@ -3,17 +3,20 @@ using System;
 using Ac.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Ac.Data.Migrations.TenantDbMigrations
+namespace Ac.Data.Migrations.Api
 {
-    [DbContext(typeof(TenantDb))]
-    partial class TenantDbModelSnapshot : ModelSnapshot
+    [DbContext(typeof(Data.ApiDb))]
+    [Migration("20260222061539_AddSystemAccounts")]
+    partial class AddSystemAccounts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -24,11 +27,9 @@ namespace Ac.Data.Migrations.TenantDbMigrations
 
             modelBuilder.Entity("Ac.Domain.Entities.ChannelEntity", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("AuthorId")
                         .HasColumnType("uuid");
@@ -70,10 +71,7 @@ namespace Ac.Data.Migrations.TenantDbMigrations
                     b.HasIndex("Token")
                         .IsUnique();
 
-                    b.ToTable("Channels", "public", t =>
-                        {
-                            t.ExcludeFromMigrations();
-                        });
+                    b.ToTable("Channels");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.ConversationEntity", b =>
@@ -87,8 +85,8 @@ namespace Ac.Data.Migrations.TenantDbMigrations
                     b.Property<Guid>("AuthorId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("ChannelId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("ChannelId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone");
@@ -127,7 +125,7 @@ namespace Ac.Data.Migrations.TenantDbMigrations
                     b.HasIndex("TenantId", "ChannelId", "ExternalUserId")
                         .IsUnique();
 
-                    b.ToTable("Conversations", "tenant_template");
+                    b.ToTable("Conversations");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.DecisionAuditEntity", b =>
@@ -175,7 +173,7 @@ namespace Ac.Data.Migrations.TenantDbMigrations
 
                     b.HasIndex("ModifierId");
 
-                    b.ToTable("DecisionAudits", "tenant_template");
+                    b.ToTable("DecisionAudits");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.MessageEntity", b =>
@@ -224,7 +222,7 @@ namespace Ac.Data.Migrations.TenantDbMigrations
 
                     b.HasIndex("ModifierId");
 
-                    b.ToTable("Messages", "tenant_template");
+                    b.ToTable("Messages");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.TenantEntity", b =>
@@ -241,16 +239,16 @@ namespace Ac.Data.Migrations.TenantDbMigrations
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Inn")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
                     b.Property<DateTime?>("Modified")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("ModifierId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
@@ -258,74 +256,96 @@ namespace Ac.Data.Migrations.TenantDbMigrations
 
                     b.HasIndex("ModifierId");
 
-                    b.ToTable("Tenants", "public", t =>
-                        {
-                            t.ExcludeFromMigrations();
-                        });
+                    b.ToTable("Tenants");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.UserEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnOrder(0);
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnOrder(15);
 
                     b.Property<Guid>("AuthorId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnOrder(16);
 
                     b.Property<string>("ConcurrencyStamp")
-                        .HasColumnType("text");
+                        .IsConcurrencyToken()
+                        .HasColumnType("text")
+                        .HasColumnOrder(9);
 
                     b.Property<DateTime>("Created")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnOrder(17);
 
                     b.Property<string>("DisplayName")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnOrder(6);
 
                     b.Property<string>("Email")
-                        .HasColumnType("text");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnOrder(3);
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnOrder(5);
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnOrder(14);
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnOrder(13);
 
                     b.Property<DateTime?>("Modified")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnOrder(18);
 
                     b.Property<Guid?>("ModifierId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnOrder(19);
 
                     b.Property<string>("NormalizedEmail")
-                        .HasColumnType("text");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnOrder(4);
 
                     b.Property<string>("NormalizedUserName")
-                        .HasColumnType("text");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnOrder(2);
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnOrder(7);
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnOrder(10);
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnOrder(11);
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnOrder(8);
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnOrder(12);
 
                     b.Property<string>("UserName")
-                        .HasColumnType("text");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnOrder(1);
 
                     b.HasKey("Id");
 
@@ -333,10 +353,144 @@ namespace Ac.Data.Migrations.TenantDbMigrations
 
                     b.HasIndex("ModifierId");
 
-                    b.ToTable("AspNetUsers", "auth", t =>
-                        {
-                            t.ExcludeFromMigrations();
-                        });
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex");
+
+                    b.ToTable("AspNetUsers", "auth");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("RoleNameIndex");
+
+                    b.ToTable("AspNetRoles", "auth");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AspNetRoleClaims", "auth");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserClaims", "auth");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+                {
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderDisplayName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("LoginProvider", "ProviderKey");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserLogins", "auth");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AspNetUserRoles", "auth");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text");
+
+                    b.HasKey("UserId", "LoginProvider", "Name");
+
+                    b.ToTable("AspNetUserTokens", "auth");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.ChannelEntity", b =>
@@ -373,9 +527,9 @@ namespace Ac.Data.Migrations.TenantDbMigrations
                         .IsRequired();
 
                     b.HasOne("Ac.Domain.Entities.ChannelEntity", "Channel")
-                        .WithMany()
+                        .WithMany("Conversations")
                         .HasForeignKey("ChannelId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Ac.Domain.Entities.UserEntity", "Modifier")
@@ -471,6 +625,62 @@ namespace Ac.Data.Migrations.TenantDbMigrations
                     b.Navigation("Author");
 
                     b.Navigation("Modifier");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+                {
+                    b.HasOne("Ac.Domain.Entities.UserEntity", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+                {
+                    b.HasOne("Ac.Domain.Entities.UserEntity", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ac.Domain.Entities.UserEntity", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+                {
+                    b.HasOne("Ac.Domain.Entities.UserEntity", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ac.Domain.Entities.ChannelEntity", b =>
+                {
+                    b.Navigation("Conversations");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.ConversationEntity", b =>

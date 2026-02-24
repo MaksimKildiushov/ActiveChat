@@ -29,8 +29,6 @@ public class ConversationService(
             TenantId = channelCtx.TenantId,
             ChannelId = channelCtx.ChannelId,
             ExternalUserId = externalUserId,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
         };
 
         return await conversations.CreateAsync(conversation, ct);
@@ -59,7 +57,6 @@ public class ConversationService(
             SlotsJson = decision.Slots.Count > 0
                 ? JsonSerializer.Serialize(decision.Slots)
                 : null,
-            CreatedAt = DateTimeOffset.UtcNow
         }, ct);
 
         await unitOfWork.SaveChangesAsync(ct);

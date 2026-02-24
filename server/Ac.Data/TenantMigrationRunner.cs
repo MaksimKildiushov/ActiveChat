@@ -123,6 +123,39 @@ public static class TenantMigrationRunner
         }
     }
 
+    /// <summary>Результат проверки одной схемы на актуальность миграций.</summary>
+    public sealed record MigrationStatusResult(string Schema, bool IsUpToDate, int PendingCount);
+
+    /// <summary>
+    /// Проверяет для каждой схемы тенантов из public.Tenants, применены ли все миграции (сверка с __EFMigrationsHistory).
+    /// Схема должна существовать и иметь таблицу __EFMigrationsHistory; иначе не проверяется.
+    /// </summary>
+    public static async Task<IReadOnlyList<MigrationStatusResult>> GetTenantMigrationStatusAsync(string connectionString, CancellationToken ct = default)
+    {
+        var schemas = await GetTenantSchemaNamesAsync(connectionString, ct);
+        var withHistory = await GetFullyMigratedTenantSchemaNamesAsync(connectionString, ct);
+        var list = new List<MigrationStatusResult>(schemas.Count);
+
+        foreach (var schema in schemas)
+        {
+            if (!withHistory.Contains(schema))
+            {
+                list.Add(new MigrationStatusResult(schema, false, -1));
+                continue;
+            }
+
+            var optionsTenant = new DbContextOptionsBuilder<TenantDb>();
+            optionsTenant.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", schema));
+            optionsTenant.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+            await using var tenantContext = new TenantDb(optionsTenant.Options, schema);
+            var pending = await tenantContext.Database.GetPendingMigrationsAsync(ct);
+            var count = pending.Count();
+            list.Add(new MigrationStatusResult(schema, count == 0, count));
+        }
+
+        return list;
+    }
+
     /// <summary>Возвращает список имён схем тенантов (t_&lt;Inn&gt;) из public.Tenants.</summary>
     public static async Task<IReadOnlyList<string>> GetTenantSchemaNamesAsync(string connectionString, CancellationToken ct = default)
     {

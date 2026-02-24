@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace Ac.Data.Migrations
+namespace Ac.Data.Migrations.Api
 {
     /// <inheritdoc />
     public partial class EfLinksToUser : Migration

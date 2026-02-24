@@ -19,8 +19,6 @@ public class DecisionAuditEntity : IntEntity
     [Column(TypeName = "jsonb")]
     public string? SlotsJson { get; set; }
 
-    public DateTimeOffset CreatedAt { get; set; }
-
     [ForeignKey(nameof(ConversationId))]
     public ConversationEntity Conversation { get; set; } = null!;
 }

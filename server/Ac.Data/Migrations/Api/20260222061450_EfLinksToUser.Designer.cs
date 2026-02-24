@@ -3,17 +3,20 @@ using System;
 using Ac.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Ac.Data.Migrations
+namespace Ac.Data.Migrations.Api
 {
-    [DbContext(typeof(ApiDb))]
-    partial class ApiDbModelSnapshot : ModelSnapshot
+    [DbContext(typeof(Data.ApiDb))]
+    [Migration("20260222061450_EfLinksToUser")]
+    partial class EfLinksToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -24,11 +27,9 @@ namespace Ac.Data.Migrations
 
             modelBuilder.Entity("Ac.Domain.Entities.ChannelEntity", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("AuthorId")
                         .HasColumnType("uuid");
@@ -70,7 +71,158 @@ namespace Ac.Data.Migrations
                     b.HasIndex("Token")
                         .IsUnique();
 
-                    b.ToTable("Channels", "public");
+                    b.ToTable("Channels");
+                });
+
+            modelBuilder.Entity("Ac.Domain.Entities.ConversationEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExternalUserId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("Modified")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ModifierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StateJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("ChannelId");
+
+                    b.HasIndex("ModifierId");
+
+                    b.HasIndex("TenantId", "ChannelId", "ExternalUserId")
+                        .IsUnique();
+
+                    b.ToTable("Conversations");
+                });
+
+            modelBuilder.Entity("Ac.Domain.Entities.DecisionAuditEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("Confidence")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("Modified")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ModifierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SlotsJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("StepKind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("ModifierId");
+
+                    b.ToTable("DecisionAudits");
+                });
+
+            modelBuilder.Entity("Ac.Domain.Entities.MessageEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime?>("Modified")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ModifierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RawJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("ModifierId");
+
+                    b.ToTable("Messages");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.TenantEntity", b =>
@@ -87,16 +239,16 @@ namespace Ac.Data.Migrations
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Inn")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
                     b.Property<DateTime?>("Modified")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("ModifierId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
@@ -104,42 +256,7 @@ namespace Ac.Data.Migrations
 
                     b.HasIndex("ModifierId");
 
-                    b.ToTable("Tenants", "public");
-                });
-
-            modelBuilder.Entity("Ac.Domain.Entities.TenantUserEntity", b =>
-                {
-                    b.Property<int>("TenantId")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AuthorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("Created")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("Modified")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("ModifierId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("TenantId", "UserId");
-
-                    b.HasIndex("AuthorId");
-
-                    b.HasIndex("ModifierId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("TenantUsers", "public");
+                    b.ToTable("Tenants");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.UserEntity", b =>
@@ -401,6 +518,81 @@ namespace Ac.Data.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("Ac.Domain.Entities.ConversationEntity", b =>
+                {
+                    b.HasOne("Ac.Domain.Entities.UserEntity", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ac.Domain.Entities.ChannelEntity", "Channel")
+                        .WithMany("Conversations")
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ac.Domain.Entities.UserEntity", "Modifier")
+                        .WithMany()
+                        .HasForeignKey("ModifierId");
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Channel");
+
+                    b.Navigation("Modifier");
+                });
+
+            modelBuilder.Entity("Ac.Domain.Entities.DecisionAuditEntity", b =>
+                {
+                    b.HasOne("Ac.Domain.Entities.UserEntity", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ac.Domain.Entities.ConversationEntity", "Conversation")
+                        .WithMany("DecisionAudits")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ac.Domain.Entities.UserEntity", "Modifier")
+                        .WithMany()
+                        .HasForeignKey("ModifierId");
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Modifier");
+                });
+
+            modelBuilder.Entity("Ac.Domain.Entities.MessageEntity", b =>
+                {
+                    b.HasOne("Ac.Domain.Entities.UserEntity", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ac.Domain.Entities.ConversationEntity", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Ac.Domain.Entities.UserEntity", "Modifier")
+                        .WithMany()
+                        .HasForeignKey("ModifierId");
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Modifier");
+                });
+
             modelBuilder.Entity("Ac.Domain.Entities.TenantEntity", b =>
                 {
                     b.HasOne("Ac.Domain.Entities.UserEntity", "Author")
@@ -416,40 +608,6 @@ namespace Ac.Data.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Modifier");
-                });
-
-            modelBuilder.Entity("Ac.Domain.Entities.TenantUserEntity", b =>
-                {
-                    b.HasOne("Ac.Domain.Entities.UserEntity", "Author")
-                        .WithMany()
-                        .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Ac.Domain.Entities.UserEntity", "Modifier")
-                        .WithMany()
-                        .HasForeignKey("ModifierId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Ac.Domain.Entities.TenantEntity", "Tenant")
-                        .WithMany("Users")
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Ac.Domain.Entities.UserEntity", "User")
-                        .WithMany("TenantMemberships")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Author");
-
-                    b.Navigation("Modifier");
-
-                    b.Navigation("Tenant");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.UserEntity", b =>
@@ -520,16 +678,21 @@ namespace Ac.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Ac.Domain.Entities.ChannelEntity", b =>
+                {
+                    b.Navigation("Conversations");
+                });
+
+            modelBuilder.Entity("Ac.Domain.Entities.ConversationEntity", b =>
+                {
+                    b.Navigation("DecisionAudits");
+
+                    b.Navigation("Messages");
+                });
+
             modelBuilder.Entity("Ac.Domain.Entities.TenantEntity", b =>
                 {
                     b.Navigation("Channels");
-
-                    b.Navigation("Users");
-                });
-
-            modelBuilder.Entity("Ac.Domain.Entities.UserEntity", b =>
-                {
-                    b.Navigation("TenantMemberships");
                 });
 #pragma warning restore 612, 618
         }

@@ -18,10 +18,6 @@ public class ConversationEntity : IntEntity
     [Column(TypeName = "jsonb")]
     public string? StateJson { get; set; }
 
-    public DateTimeOffset CreatedAt { get; set; }
-
-    public DateTimeOffset UpdatedAt { get; set; }
-
     public int ChannelId { get; set; }
 
     [ForeignKey(nameof(ChannelId))]
