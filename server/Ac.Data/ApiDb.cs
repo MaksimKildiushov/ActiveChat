@@ -13,9 +13,6 @@ public class ApiDb(DbContextOptions<ApiDb> options)
     public DbSet<TenantEntity> Tenants => Set<TenantEntity>();
     public DbSet<TenantUserEntity> TenantUsers => Set<TenantUserEntity>();
     public DbSet<ChannelEntity> Channels => Set<ChannelEntity>();
-    public DbSet<ConversationEntity> Conversations => Set<ConversationEntity>();
-    public DbSet<MessageEntity> Messages => Set<MessageEntity>();
-    public DbSet<DecisionAuditEntity> DecisionAudits => Set<DecisionAuditEntity>();
 
     /// <summary>
     /// Глобальные конвенции типов — применяются ко всем сущностям автоматически.
@@ -57,6 +54,14 @@ public class ApiDb(DbContextOptions<ApiDb> options)
             .WithMany()
             .HasForeignKey(e => e.ModifierId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        #endregion
+
+        #region Public: каталог
+
+        modelBuilder.Entity<TenantEntity>().ToTable("Tenants", "public");
+        modelBuilder.Entity<TenantUserEntity>().ToTable("TenantUsers", "public");
+        modelBuilder.Entity<ChannelEntity>().ToTable("Channels", "public");
 
         #endregion
 

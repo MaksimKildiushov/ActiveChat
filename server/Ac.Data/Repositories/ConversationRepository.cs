@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Ac.Data.Repositories;
 
-public class ConversationRepository(ApiDb db) : IConversationRepository
+public class ConversationRepository(TenantDb db) : IConversationRepository
 {
     public Task<ConversationEntity?> FindAsync(
         int tenantId, int channelId, string externalUserId, CancellationToken ct = default)

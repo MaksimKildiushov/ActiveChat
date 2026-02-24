@@ -25,6 +25,4 @@ public class ChannelEntity : IntEntity
 
     [ForeignKey(nameof(TenantId))]
     public TenantEntity Tenant { get; set; } = null!;
-
-    public ICollection<ConversationEntity> Conversations { get; set; } = [];
 }

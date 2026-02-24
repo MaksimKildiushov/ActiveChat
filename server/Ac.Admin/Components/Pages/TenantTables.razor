@@ -1,0 +1,185 @@
+@page "/tenant-tables"
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject ApiDb Db
+@inject IConfiguration Configuration
+
+<PageTitle>Таблицы тенанта — ActiveChat Admin</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0">Таблицы тенанта</h4>
+</div>
+
+<p class="text-muted small mb-3">
+    Для каждого тенанта создаётся схема БД <code>t_&lt;ИНН&gt;</code> и к ней применяются все миграции TenantDb (Conversations, Messages, DecisionAudits и т.д.). Статус «Готова» означает, что схема создана и миграции применены.
+</p>
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible small py-2">
+        @successMessage
+        <button type="button" class="btn-close btn-sm" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible small py-2">
+        @errorMessage
+        <button type="button" class="btn-close btn-sm" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header fw-semibold">Тенанты и готовность схемы (схема + миграции)</div>
+    @if (rows.Count == 0 && !isLoading)
+    {
+        <div class="card-body text-muted small">Нет тенантов с заполненным ИНН. Добавьте тенантов на странице «Тенанты».</div>
+    }
+    else if (isLoading)
+    {
+        <div class="card-body text-muted small d-flex align-items-center gap-2">
+            <span class="spinner-border spinner-border-sm"></span> Загрузка…
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>ИНН</th>
+                        <th>Схема</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            <td class="text-muted">@row.TenantId</td>
+                            <td>@row.Inn</td>
+                            <td><code>@row.SchemaName</code></td>
+                            <td>
+                                @if (row.SchemaReady)
+                                {
+                                    <span class="badge bg-success">Готова</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Не создана</span>
+                                }
+                            </td>
+                            <td>
+                                @if (row.SchemaReady)
+                                {
+                                    <span class="text-muted small">—</span>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm"
+                                            disabled="@(creatingSchema == row.SchemaName)"
+                                            @onclick="@(() => CreateSchemaAsync(row.SchemaName))">
+                                        @if (creatingSchema == row.SchemaName)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                        }
+                                        Создать схему и применить миграции
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private sealed record Row(int TenantId, string Inn, string SchemaName, bool SchemaReady);
+
+    private List<Row> rows = [];
+    private bool isLoading = true;
+    private string? creatingSchema;
+    private string? successMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        successMessage = null;
+        errorMessage = null;
+
+        try
+        {
+            var connStr = Configuration.GetConnectionString("Default");
+            if (string.IsNullOrEmpty(connStr))
+            {
+                errorMessage = "Строка подключения не задана.";
+                return;
+            }
+
+            var tenants = await Db.Tenants
+                .AsNoTracking()
+                .Where(t => t.Inn != null && t.Inn != "")
+                .OrderBy(t => t.Id)
+                .Select(t => new { t.Id, t.Inn })
+                .ToListAsync();
+
+            var readySchemas = await TenantMigrationRunner.GetFullyMigratedTenantSchemaNamesAsync(connStr);
+
+            rows = tenants
+                .Select(t => new Row(t.Id, t.Inn!, "t_" + t.Inn, readySchemas.Contains("t_" + t.Inn)))
+                .ToList();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CreateSchemaAsync(string schemaName)
+    {
+        var connStr = Configuration.GetConnectionString("Default");
+        if (string.IsNullOrEmpty(connStr))
+        {
+            errorMessage = "Строка подключения не задана.";
+            return;
+        }
+
+        creatingSchema = schemaName;
+        successMessage = null;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await TenantMigrationRunner.RunForSchemaAsync(connStr, schemaName);
+
+            if (result.Success)
+            {
+                successMessage = $"Схема «{schemaName}» создана. {result.Message}";
+                await LoadAsync();
+            }
+            else
+            {
+                errorMessage = $"{schemaName}: {result.Message}";
+            }
+        }
+        finally
+        {
+            creatingSchema = null;
+            StateHasChanged();
+        }
+    }
+}

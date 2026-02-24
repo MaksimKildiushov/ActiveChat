@@ -1,0 +1,115 @@
+@page "/migrate-tenants"
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject IConfiguration Configuration
+
+<PageTitle>Миграции тенантов — ActiveChat Admin</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0">Миграции схем тенантов</h4>
+    <button class="btn btn-primary btn-sm" @onclick="RunMigrations" disabled="@isRunning">
+        @if (isRunning)
+        {
+            <span class="spinner-border spinner-border-sm me-1"></span>
+        }
+        Применить миграции ко всем схемам
+    </button>
+</div>
+
+<p class="text-muted small mb-3">
+    Схемы тенантов (<code>t_&lt;Inn&gt;</code>) берутся из <code>public.Tenants</code>. В каждой схеме своя история миграций (<code>__EFMigrationsHistory</code>).
+</p>
+
+@if (schemas.Count > 0 && !isRunning && results.Count == 0)
+{
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Схемы тенантов (@schemas.Count)</div>
+        <div class="card-body py-2">
+            <code>@string.Join(", ", schemas)</code>
+        </div>
+    </div>
+}
+
+@if (results.Count > 0)
+{
+    <div class="card">
+        <div class="card-header fw-semibold">Результат</div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Схема</th>
+                        <th>Статус</th>
+                        <th>Сообщение</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in results)
+                    {
+                        <tr>
+                            <td><code>@r.Schema</code></td>
+                            <td>
+                                @if (r.Success)
+                                {
+                                    <span class="badge bg-success">OK</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Ошибка</span>
+                                }
+                            </td>
+                            <td class="small">@r.Message</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer small text-muted">
+            Применено миграций: @results.Sum(r => r.AppliedCount). Всего схем: @results.Count, успешно: @results.Count(r => r.Success), ошибок: @results.Count(r => !r.Success).
+        </div>
+    </div>
+}
+
+@if (schemas.Count == 0 && !isRunning)
+{
+    <div class="alert alert-info small">В <code>public.Tenants</code> нет записей с заполненным ИНН. Добавьте тенантов на странице «Тенанты».</div>
+}
+
+@code {
+    private IReadOnlyList<string> schemas = [];
+    private IReadOnlyList<TenantMigrationRunner.Result> results = [];
+    private bool isRunning;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSchemasAsync();
+    }
+
+    private async Task LoadSchemasAsync()
+    {
+        var connStr = Configuration.GetConnectionString("Default");
+        if (string.IsNullOrEmpty(connStr)) return;
+        schemas = await TenantMigrationRunner.GetTenantSchemaNamesAsync(connStr);
+    }
+
+    private async Task RunMigrations()
+    {
+        var connStr = Configuration.GetConnectionString("Default");
+        if (string.IsNullOrEmpty(connStr))
+        {
+            return;
+        }
+
+        isRunning = true;
+        results = [];
+        try
+        {
+            results = await TenantMigrationRunner.RunAsync(connStr);
+        }
+        finally
+        {
+            isRunning = false;
+        }
+    }
+}

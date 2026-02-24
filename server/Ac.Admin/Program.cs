@@ -5,7 +5,48 @@ using Ac.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-var builder = WebApplication.CreateBuilder(args);
+// Запуск миграций тенантов вместо веб-приложения (для CI/CD: dotnet run -- migrate_tenants)
+var cmdArgs = Environment.GetCommandLineArgs();
+if (cmdArgs.Contains("migrate_tenants", StringComparer.OrdinalIgnoreCase))
+{
+    var envName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+    if (envName is null)
+    {
+        Console.Error.WriteLine("Choose Environment (set ASPNETCORE_ENVIRONMENT var)!");
+        Environment.Exit(1);
+    }
+
+    var config = new ConfigurationBuilder()
+        .SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("appsettings.json", optional: false)
+        .AddJsonFile($"appsettings.{envName}.json", optional: false)
+        .AddEnvironmentVariables()
+        .Build();
+
+    var connectionString = config.GetConnectionString("Default");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        Console.Error.WriteLine("Connection string 'Default' not found. Set ConnectionStrings__Default or ensure appsettings.json is present.");
+        Environment.Exit(1);
+    }
+
+    var results = await TenantMigrationRunner.RunAsync(connectionString);
+    var applied = results.Count(r => r.Success && r.AppliedCount > 0);
+    var failed = results.Count(r => !r.Success);
+
+    foreach (var r in results)
+    {
+        var status = r.Success ? (r.AppliedCount > 0 ? "[OK]" : "[--]") : "[FAIL]";
+        Console.WriteLine($"  {status} {r.Schema}: {r.Message}");
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Done. Applied: {applied}, Up to date: {results.Count - applied - failed}, Failed: {failed}");
+    Environment.Exit(failed > 0 ? 1 : 0);
+}
+
+var builder = WebApplication.CreateBuilder(cmdArgs);
 
 var env = builder.Environment;
 // Конфиг читается из AppContext.BaseDirectory (bin/), куда MSBuild копирует linked-файлы из Ac.Api.

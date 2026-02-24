@@ -11,6 +11,10 @@ public class TenantEntity : IntEntity
     [MaxLength(256)]
     public string Inn { get; set; } = string.Empty;
 
+    /// <summary>Имя схемы БД для данных тенанта (без миграций — вычисляется в рантайме).</summary>
+    [NotMapped]
+    public string SchemaName => "t_" + Inn;
+
     public ICollection<ChannelEntity> Channels { get; set; } = [];
 
     public ICollection<TenantUserEntity> Users { get; set; } = [];

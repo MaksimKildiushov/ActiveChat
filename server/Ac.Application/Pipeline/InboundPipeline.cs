@@ -8,6 +8,7 @@ namespace Ac.Application.Pipeline;
 
 public class InboundPipeline(
     IChannelTokenResolver tokenResolver,
+    ICurrentTenantContext tenantContext,
     InboundParserRegistry parserRegistry,
     ConversationService conversationService,
     IAiDecisionService aiDecisionService,
@@ -25,8 +26,10 @@ public class InboundPipeline(
             return;
         }
 
-        logger.LogDebug("Channel resolved: {ChannelId} [{Type}] tenant={TenantId}",
-            channelCtx.ChannelId, channelCtx.ChannelType, channelCtx.TenantId);
+        tenantContext.Set(channelCtx.TenantId, channelCtx.SchemaName);
+
+        logger.LogDebug("Channel resolved: {ChannelId} [{Type}] tenant={TenantId} schema={Schema}",
+            channelCtx.ChannelId, channelCtx.ChannelType, channelCtx.TenantId, channelCtx.SchemaName);
 
         // 2. Parse raw body -> UnifiedInboundMessage
         var inbound = parserRegistry.GetParser(channelCtx.ChannelType).Parse(rawJson);

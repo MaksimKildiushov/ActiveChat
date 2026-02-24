@@ -47,6 +47,12 @@ void ConfigureServices(IServiceCollection services, IConfiguration cfg)
         opts.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
     });
 
+    services.AddDbContext<TenantDb>((sp, opts) =>
+    {
+        opts.UseNpgsql(cfg.GetConnectionString("Default"));
+        opts.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
+    });
+
     services.AddControllers();
     services.AddOpenApi();
     services.AddScoped<ChannelTokenAuthFilter>();
