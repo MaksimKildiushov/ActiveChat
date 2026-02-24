@@ -11,6 +11,7 @@ public static class DataServiceExtensions
     {
         services.AddScoped<ICurrentTenantContext, CurrentTenantContext>();
         services.AddScoped<IChannelTokenResolver, ChannelTokenResolver>();
+        services.AddScoped<IClientRepository, ClientRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
         services.AddScoped<IMessageRepository, MessageRepository>();
         services.AddScoped<IDecisionAuditRepository, DecisionAuditRepository>();

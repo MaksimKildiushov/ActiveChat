@@ -21,6 +21,7 @@ public class WebhookParser : IInboundParser
         var userId = root.TryGetProperty("userId", out var userProp)
             ? userProp.GetString() ?? "unknown"
             : "unknown";
+        var chatId = root.TryGetProperty("chatId", out var chatProp) ? chatProp.GetString() : null;
 
         var text = root.TryGetProperty("text", out var textProp)
             ? textProp.GetString() ?? ""
@@ -33,6 +34,7 @@ public class WebhookParser : IInboundParser
 
         return new UnifiedInboundMessage(
             ExternalUserId: userId,
+            ChatId: chatId,
             Text: text,
             Attachments: [],
             Timestamp: timestamp,

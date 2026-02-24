@@ -15,20 +15,28 @@ public class ConversationService(
 {
     public async Task<ConversationEntity> GetOrCreateAsync(
         ChannelContext channelCtx,
-        string externalUserId,
+        ClientEntity client,
+        string? chatId,
         CancellationToken ct = default)
     {
         var existing = await conversations.FindAsync(
-            channelCtx.TenantId, channelCtx.ChannelId, externalUserId, ct);
+            channelCtx.ChannelId, client.Id, ct);
 
         if (existing is not null)
+        {
+            if (!string.IsNullOrEmpty(chatId) && existing.ChatId != chatId)
+            {
+                existing.ChatId = chatId;
+                await unitOfWork.SaveChangesAsync(ct);
+            }
             return existing;
+        }
 
         ConversationEntity conversation = new()
         {
-            TenantId = channelCtx.TenantId,
             ChannelId = channelCtx.ChannelId,
-            ExternalUserId = externalUserId,
+            ClientId = client.Id,
+            ChatId = chatId,
         };
 
         return await conversations.CreateAsync(conversation, ct);

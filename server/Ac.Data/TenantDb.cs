@@ -39,6 +39,7 @@ public class TenantDb : DbContext
     public DbSet<ConversationEntity> Conversations => Set<ConversationEntity>();
     public DbSet<MessageEntity> Messages => Set<MessageEntity>();
     public DbSet<DecisionAuditEntity> DecisionAudits => Set<DecisionAuditEntity>();
+    public DbSet<ClientEntity> Clients => Set<ClientEntity>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -54,7 +55,7 @@ public class TenantDb : DbContext
             throw new InvalidOperationException(
                 "Tenant schema is not set. Set ICurrentTenantContext (e.g. in InboundPipeline) before using TenantDb.");
 
-        #region Public: Tenants, Channels — только для чтения, не участвуют в миграциях TenantDb
+        #region Public: Tenants, Channels, UserEntity — только для чтения, не участвуют в миграциях TenantDb
 
         modelBuilder.Ignore<TenantUserEntity>();
 
@@ -69,10 +70,6 @@ public class TenantDb : DbContext
             b.ToTable("Channels", "public");
             b.Metadata.SetIsTableExcludedFromMigrations(true);
         });
-
-        #endregion
-
-        #region Auth: UserEntity — для FK AuthorId/ModifierId из тенант-таблиц
 
         modelBuilder.Entity<UserEntity>(b =>
         {
@@ -101,6 +98,11 @@ public class TenantDb : DbContext
         modelBuilder.Entity<DecisionAuditEntity>(b =>
         {
             b.ToTable("DecisionAudits", schema);
+        });
+
+        modelBuilder.Entity<ClientEntity>(b =>
+        {
+            b.ToTable("Clients", schema);
         });
 
         #endregion

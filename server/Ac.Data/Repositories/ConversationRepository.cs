@@ -7,11 +7,9 @@ namespace Ac.Data.Repositories;
 public class ConversationRepository(TenantDb db) : IConversationRepository
 {
     public Task<ConversationEntity?> FindAsync(
-        int tenantId, int channelId, string externalUserId, CancellationToken ct = default)
+        int channelId, int clientId, CancellationToken ct = default)
         => db.Conversations.FirstOrDefaultAsync(
-            c => c.TenantId == tenantId
-                 && c.ChannelId == channelId
-                 && c.ExternalUserId == externalUserId,
+            c => c.ChannelId == channelId && c.ClientId == clientId,
             ct);
 
     public async Task<ConversationEntity> CreateAsync(ConversationEntity conversation, CancellationToken ct = default)

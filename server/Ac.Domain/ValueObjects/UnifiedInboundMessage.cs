@@ -6,8 +6,10 @@ namespace Ac.Domain.ValueObjects;
 /// После парсинга pipeline работает только с этой моделью — каналоспецифичные детали скрыты.
 /// </summary>
 public record UnifiedInboundMessage(
-    /// <summary>ID пользователя в рамках канала (chat_id, userId, clientId и т.д.).</summary>
+    /// <summary>ID пользователя в канале (client_id, from.id и т.д.) — записывается в Client.ChannelUserId.</summary>
     string ExternalUserId,
+    /// <summary>ID чата в канале (chat_id и т.д.) — куда отправлять ответы; записывается в Conversation.ChatId.</summary>
+    string? ChatId,
     /// <summary>Текстовое содержимое. Пустая строка, если сообщение нетекстовое.</summary>
     string Text,
     /// <summary>Список URL/ID вложений (фото, документы). Пустой список, если вложений нет.</summary>

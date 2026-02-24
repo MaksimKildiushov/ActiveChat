@@ -35,6 +35,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAiDecisionService, StubAiDecisionService>();
 
         // Core services
+        services.AddScoped<ClientService>();
         services.AddScoped<ConversationService>();
         services.AddScoped<InboundPipeline>();
 

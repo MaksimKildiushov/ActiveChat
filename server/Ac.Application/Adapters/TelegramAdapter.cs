@@ -13,8 +13,8 @@ public class TelegramAdapter(ILogger<TelegramAdapter> logger) : IChannelDelivery
     public Task DeliverAsync(OutboundMessage message, CancellationToken ct = default)
     {
         logger.LogInformation(
-            "[TelegramAdapter] -> chatId={UserId} | intent={IntentType} | text={Text}",
-            message.ExternalUserId,
+            "[TelegramAdapter] -> chatId={ChatId} | intent={IntentType} | text={Text}",
+            message.ChatId,
             message.Intent.GetType().Name,
             message.Intent switch
             {

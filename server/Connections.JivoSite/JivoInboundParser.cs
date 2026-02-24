@@ -1,4 +1,4 @@
-﻿using Ac.Application.Contracts.Interfaces;
+using Ac.Application.Contracts.Interfaces;
 using Ac.Domain.Enums;
 using Ac.Domain.ValueObjects;
 using System.Text.Json;
@@ -38,7 +38,8 @@ public sealed class JivoInboundParser : IInboundParser
         var attachments = ExtractAttachments(payload);
 
         return new UnifiedInboundMessage(
-            ExternalUserId: evt.ClientId,   // <- ключевое изменение
+            ExternalUserId: evt.ClientId,
+            ChatId: evt.ChatId,
             Text: text,
             Attachments: attachments,
             Timestamp: timestamp,

@@ -22,6 +22,9 @@ public class TelegramLikeParser : IInboundParser
         var from = message.GetProperty("from");
 
         var externalUserId = from.GetProperty("id").GetRawText().Trim('"');
+        var chatId = message.TryGetProperty("chat", out var chatEl) && chatEl.TryGetProperty("id", out var chatIdEl)
+            ? chatIdEl.GetRawText().Trim('"')
+            : externalUserId;
         var text = message.TryGetProperty("text", out var textProp) ? textProp.GetString() ?? "" : "";
         var timestamp = message.TryGetProperty("date", out var dateProp)
             ? DateTimeOffset.FromUnixTimeSeconds(dateProp.GetInt64())
@@ -29,6 +32,7 @@ public class TelegramLikeParser : IInboundParser
 
         return new UnifiedInboundMessage(
             ExternalUserId: externalUserId,
+            ChatId: chatId,
             Text: text,
             Attachments: [],
             Timestamp: timestamp,

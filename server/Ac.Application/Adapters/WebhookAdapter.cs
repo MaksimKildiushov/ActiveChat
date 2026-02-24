@@ -13,8 +13,8 @@ public class WebhookAdapter(ILogger<WebhookAdapter> logger) : IChannelDeliveryAd
     public Task DeliverAsync(OutboundMessage message, CancellationToken ct = default)
     {
         logger.LogInformation(
-            "[WebhookAdapter] -> userId={UserId} | intent={IntentType} | text={Text}",
-            message.ExternalUserId,
+            "[WebhookAdapter] -> chatId={ChatId} | intent={IntentType} | text={Text}",
+            message.ChatId,
             message.Intent.GetType().Name,
             message.Intent switch
             {
