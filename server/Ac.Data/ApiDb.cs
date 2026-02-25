@@ -63,6 +63,7 @@ public class ApiDb(DbContextOptions<ApiDb> options)
         modelBuilder.Entity<TenantEntity>().ToTable("Tenants", "public");
         modelBuilder.Entity<TenantUserEntity>().ToTable("TenantUsers", "public");
         modelBuilder.Entity<ChannelEntity>().ToTable("Channels", "public");
+        modelBuilder.Entity<EventEntity>().ToTable("Events", "public");
 
         #endregion
 

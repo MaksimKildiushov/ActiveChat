@@ -13,16 +13,26 @@ public class TaskCloneChatMessageToTg(
     ILogger<TaskCloneChatMessageToTg> logger)
 {
     /// <summary>
-    /// Отправляет уведомление пользователю о новом сообщении через n8n webhook
+    /// Отправляет уведомление о новом сообщении через n8n webhook (для UserMessage: tenantId, conversationId, messageId, userId).
     /// </summary>
-    /// <param name="chatId">ID чата</param>
-    /// <param name="messageId">ID сообщения</param>
-    /// <param name="userId">ID пользователя</param>
-    public async Task Execute(int chatId, int messageId, Guid userId)
+    public async Task Execute(int tenantId, int chatId, int messageId, int userId)
+    {
+        await ExecuteCore(chatId, messageId, userId: userId);
+    }
+
+    /// <summary>
+    /// Отправляет уведомление оператору о новом сообщении через n8n webhook (для OperatorMessage).
+    /// </summary>
+    public async Task Execute(int chatId, int messageId, Guid operatorId)
+    {
+        await ExecuteCore(chatId, messageId, operatorId: operatorId);
+    }
+
+    private async Task ExecuteCore(int chatId, int messageId, int? userId = null, Guid? operatorId = null)
     {
         logger.LogDebug(
-            "TaskPushUserMessage: ChatId={ChatId}, MessageId={MessageId}, UserId={UserId}",
-            chatId, messageId, userId);
+            "TaskCloneChatMessageToTg: ChatId={ChatId}, MessageId={MessageId}, UserId={UserId}, OperatorId={OperatorId}",
+            chatId, messageId, userId, operatorId);
 
         var webhookUrl = configuration["n8n:UserMessageWebhookUrl"];
         if (string.IsNullOrEmpty(webhookUrl))
@@ -34,13 +44,9 @@ public class TaskCloneChatMessageToTg(
         try
         {
             var client = httpClientFactory.CreateClient();
-            
-            var requestBody = new
-            {
-                chatId,
-                messageId,
-                userId
-            };
+            var requestBody = userId.HasValue
+                ? (object)new { chatId, messageId, userId = userId.Value }
+                : new { chatId, messageId, operatorId };
 
             var response = await client.PostAsJsonAsync(webhookUrl, requestBody);
 
@@ -54,8 +60,8 @@ public class TaskCloneChatMessageToTg(
             }
 
             logger.LogDebug(
-                "Successfully called n8n webhook: ChatId={ChatId}, MessageId={MessageId}, UserId={UserId}",
-                chatId, messageId, userId);
+                "Successfully called n8n webhook: ChatId={ChatId}, MessageId={MessageId}",
+                chatId, messageId);
         }
         catch (Exception ex)
         {

@@ -33,5 +33,14 @@
                 <span class="bi bi-database-gear" aria-hidden="true"></span> Миграции тенантов
             </NavLink>
         </div>
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="/hangfire">
+                        <span class="bi bi-clock-history" aria-hidden="true"></span> Hangfire
+                    </a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </nav>
 </div>

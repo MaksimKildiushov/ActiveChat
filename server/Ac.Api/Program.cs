@@ -12,12 +12,16 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+#region env
+
 var env = builder.Environment;
 builder.Configuration
     .SetBasePath(env.ContentRootPath)
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
+
+#endregion
 
 ConfigureServices(builder.Services, builder.Configuration);
 

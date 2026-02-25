@@ -3,6 +3,7 @@ using System;
 using Ac.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Ac.Data.Migrations.Tenant
 {
     [DbContext(typeof(TenantDb))]
-    partial class TenantDbModelSnapshot : ModelSnapshot
+    [Migration("20260225135631_UpdateMessages")]
+    partial class UpdateMessages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -183,9 +186,6 @@ namespace Ac.Data.Migrations.Tenant
                     b.Property<Guid?>("ModifierId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("OperatorId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Rating")
                         .IsRequired()
                         .HasColumnType("text");
@@ -204,8 +204,6 @@ namespace Ac.Data.Migrations.Tenant
                     b.HasIndex("ClientId");
 
                     b.HasIndex("ModifierId");
-
-                    b.HasIndex("OperatorId");
 
                     b.HasIndex("ChannelId", "ClientId")
                         .IsUnique();
@@ -507,10 +505,6 @@ namespace Ac.Data.Migrations.Tenant
                         .WithMany()
                         .HasForeignKey("ModifierId");
 
-                    b.HasOne("Ac.Domain.Entities.UserEntity", "Operator")
-                        .WithMany()
-                        .HasForeignKey("OperatorId");
-
                     b.Navigation("Author");
 
                     b.Navigation("Channel");
@@ -518,8 +512,6 @@ namespace Ac.Data.Migrations.Tenant
                     b.Navigation("Client");
 
                     b.Navigation("Modifier");
-
-                    b.Navigation("Operator");
                 });
 
             modelBuilder.Entity("Ac.Domain.Entities.DecisionAuditEntity", b =>

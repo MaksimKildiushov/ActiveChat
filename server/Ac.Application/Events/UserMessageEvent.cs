@@ -22,12 +22,14 @@ public class UserMessageEvent(
     /// </summary>
     public static EventEntity Create(
         ApiDb db,
+        int tenantId,
         int chatId,
         int messageId,
-        Guid userId)
+        int userId)
     {
         var payload = new UserMessagePayload
         {
+            TenantId = tenantId,
             ConversationId = chatId,
             MessageId = messageId,
             UserId = userId
@@ -50,14 +52,13 @@ public class UserMessageEvent(
 
     protected override string EventName => "UserMessage";
 
-    protected override bool ValidatePayload(UserMessagePayload payload)
-    {
-        return payload.ConversationId != 0 && payload.MessageId != 0 && payload.UserId != Guid.Empty;
-    }
+    protected override bool ValidatePayload(UserMessagePayload payload)=>
+        payload.TenantId != 0 && payload.ConversationId != 0 && payload.MessageId != 0 && payload.UserId != 0;
 
     protected override void EnqueueTask(UserMessagePayload payload)
     {
-        BackgroundJob.Enqueue<TaskCloneChatMessageToTg>(x => x.Execute(
+        BackgroundJob.Enqueue<TaskProcessInboundMessage>(x => x.Execute(
+            payload.TenantId,
             payload.ConversationId,
             payload.MessageId,
             payload.UserId));
@@ -82,10 +83,12 @@ public class UserMessageEvent(
     /// </summary>
     public class UserMessagePayload
     {
+        public int TenantId { get; set; }
+
         public int ConversationId { get; set; }
 
         public int MessageId { get; set; }
 
-        public Guid UserId { get; set; }
+        public int UserId { get; set; }
     }
 }

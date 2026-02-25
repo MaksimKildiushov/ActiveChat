@@ -27,7 +27,7 @@ dotnet ef migrations add RemoveCreatedAt --context TenantDb --project ../Ac.Data
 ```
 
 ```powershell
-Add-Migration AddConversationFields -o Migrations/Tenant -Context TenantDb -Project Ac.Data -StartupProject Ac.Api
+Add-Migration AddOperatorToConversation -o Migrations/Tenant -Context TenantDb -Project Ac.Data -StartupProject Ac.Api
 ```
 
 ---

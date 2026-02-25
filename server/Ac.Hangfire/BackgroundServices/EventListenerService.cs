@@ -5,7 +5,7 @@ using Ac.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-namespace Vo.Hangfire.BackgroundServices;
+namespace Ac.Hangfire.BackgroundServices;
 
 /// <summary>
 /// Background Service для прослушивания PostgreSQL NOTIFY событий
@@ -63,7 +63,7 @@ public class EventListenerService(
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error handling NpgsqlNotificationEventArgs: {Payload}", e.Payload);
+                _logger.LogError(ex, "Error handling notification: {Payload}", e.Payload);
             }
         };
 
@@ -94,12 +94,12 @@ public class EventListenerService(
 
     private async Task HandleNotificationAsync(string eventArgsPayload, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Received NpgsqlNotificationEventArgs: {Payload}", eventArgsPayload);
+        _logger.LogDebug("Received NOTIFY events: {Payload}", eventArgsPayload);
 
         // Парсим eventId из payload
         if (!int.TryParse(eventArgsPayload, out var eventId))
         {
-            _logger.LogWarning("Invalid event ID in NpgsqlNotificationEventArgs: {Payload}", eventArgsPayload);
+            _logger.LogWarning("Invalid event ID in notification: {Payload}", eventArgsPayload);
             return;
         }
 

@@ -1,7 +1,10 @@
 using Ac.Admin.Components;
+using Ac.Admin.Infrastructure;
 using Ac.Data;
 using Ac.Data.Accessors;
 using Ac.Domain.Entities;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -106,6 +109,14 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 builder.Services.AddAuthorization();
 
+// Hangfire: дашборд в Admin, хранилище — та же PostgreSQL (таблицы в схеме hangfire)
+var hangfireConnectionString = builder.Configuration.GetConnectionString("Default");
+if (!string.IsNullOrEmpty(hangfireConnectionString))
+{
+    builder.Services.AddHangfire(config =>
+        config.UsePostgreSqlStorage(opts => opts.UseNpgsqlConnection(hangfireConnectionString)));
+}
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -119,6 +130,11 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [new HangfireAdminAuthorizationFilter()],
+});
 
 app.UseAntiforgery();
 

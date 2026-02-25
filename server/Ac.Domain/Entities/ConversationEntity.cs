@@ -34,6 +34,12 @@ public class ConversationEntity : IntEntity
     [ForeignKey(nameof(ClientId))]
     public ClientEntity Client { get; set; } = null!;
 
+    /// <summary>Оператор, который консультирует клиента в чате. Может быть AI на первом этапе.</summary>
+    public Guid? OperatorId { get; set; }
+
+    [ForeignKey(nameof(OperatorId))]
+    public UserEntity? Operator { get; set; }
+
     /// <summary>Статус чата (активный, закрытый, приостановлен).</summary>
     public ChatStatus Status { get; set; } = ChatStatus.Active;
 
