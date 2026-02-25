@@ -57,8 +57,8 @@ public class InboundPipeline(
         await intentDispatcher.DeliverAsync(
             new OutboundMessage(chatId, intent, channelCtx), ct);
 
-        // 8. Persist message log + audit
-        await conversationService.SaveInteractionAsync(conversation.Id, inbound, decision, ct);
+        // 8. Persist message log + audit (обновляем LastMessage, MessagesCount, Status в диалоге)
+        await conversationService.SaveInteractionAsync(conversation, inbound, decision, ct);
 
         logger.LogInformation("Pipeline completed for token={Token} user={UserId} step={Step}",
             channelToken, inbound.ExternalUserId, decision.StepKind);

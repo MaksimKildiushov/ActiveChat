@@ -6,15 +6,15 @@
 
 ## ВАЖНО! Смена контекста (appsettings) для которых будут выполняться все (!) команды.
 
-```powershell
-$env:ASPNETCORE_ENVIRONMENT='Production'
-$env:ASPNETCORE_ENVIRONMENT='Development'
-```
-
 ```bash
 cd server/Ac.Api
 export ASPNETCORE_ENVIRONMENT=Production
 export ASPNETCORE_ENVIRONMENT=Development
+```
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT='Production'
+$env:ASPNETCORE_ENVIRONMENT='Development'
 ```
 
 ---
@@ -27,7 +27,7 @@ dotnet ef migrations add RemoveCreatedAt --context TenantDb --project ../Ac.Data
 ```
 
 ```powershell
-Add-Migration AddClients -o Migrations/Tenant -Context TenantDb -Project Ac.Data -StartupProject Ac.Api
+Add-Migration AddConversationFields -o Migrations/Tenant -Context TenantDb -Project Ac.Data -StartupProject Ac.Api
 ```
 
 ---

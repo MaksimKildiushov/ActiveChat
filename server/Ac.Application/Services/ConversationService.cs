@@ -43,14 +43,18 @@ public class ConversationService(
     }
 
     public async Task SaveInteractionAsync(
-        int conversationId,
+        ConversationEntity conversation,
         UnifiedInboundMessage inbound,
         DecisionResult decision,
         CancellationToken ct = default)
     {
+        conversation.LastMessage = inbound.Text;
+        conversation.MessagesCount += 1;
+        conversation.Status = ChatStatus.Active;
+
         await messages.AddAsync(new MessageEntity
         {
-            ConversationId = conversationId,
+            ConversationId = conversation.Id,
             Direction = MessageDirection.Inbound,
             Text = inbound.Text,
             RawJson = inbound.RawJson,
@@ -59,7 +63,7 @@ public class ConversationService(
 
         await audits.AddAsync(new DecisionAuditEntity
         {
-            ConversationId = conversationId,
+            ConversationId = conversation.Id,
             StepKind = decision.StepKind,
             Confidence = decision.Confidence,
             SlotsJson = decision.Slots.Count > 0

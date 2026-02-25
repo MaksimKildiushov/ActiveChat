@@ -1,4 +1,5 @@
 using Ac.Domain.Entities.Abstract;
+using Ac.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -32,6 +33,19 @@ public class ConversationEntity : IntEntity
 
     [ForeignKey(nameof(ClientId))]
     public ClientEntity Client { get; set; } = null!;
+
+    /// <summary>Статус чата (активный, закрытый, приостановлен).</summary>
+    public ChatStatus Status { get; set; } = ChatStatus.Active;
+
+    /// <summary>Текст последнего сообщения.</summary>
+    [MaxLength(4000)]
+    public string LastMessage { get; set; } = string.Empty;
+
+    /// <summary>Всего сообщений в диалоге.</summary>
+    public int MessagesCount { get; set; } = 0;
+
+    /// <summary>Рейтинг чата от клиента (Dislike = -1, Empty = 0, Like = 1).</summary>
+    public ChatRating Rating { get; set; } = ChatRating.Empty;
 
     /// <summary>Сообщения в диалоге.</summary>
     public ICollection<MessageEntity> Messages { get; set; } = [];

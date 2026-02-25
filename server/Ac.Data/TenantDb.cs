@@ -46,6 +46,8 @@ public class TenantDb : DbContext
         configurationBuilder.Properties<ChannelType>().HaveConversion<string>();
         configurationBuilder.Properties<StepKind>().HaveConversion<string>();
         configurationBuilder.Properties<MessageDirection>().HaveConversion<string>();
+        configurationBuilder.Properties<ChatStatus>().HaveConversion<string>();
+        configurationBuilder.Properties<ChatRating>().HaveConversion<string>();
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
