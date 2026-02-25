@@ -1,10 +1,10 @@
-using Ac.Application.Interfaces;
-using Ac.Application.Models;
+using Ac.Data.Repositories;
 using Ac.Domain.Entities;
+using Ac.Domain.ValueObjects;
 
 namespace Ac.Application.Services;
 
-public class ClientService(IClientRepository clients)
+public class ClientService(ClientRepository clients)
 {
     /// <summary>
     /// Находит клиента по приоритету: OverrideUserId → ChannelUserId → Email → Phone.

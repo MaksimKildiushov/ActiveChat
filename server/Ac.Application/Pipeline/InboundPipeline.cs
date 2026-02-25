@@ -1,14 +1,20 @@
-using Ac.Application.Interfaces;
+using Ac.Application.Contracts.Interfaces;
+using Ac.Application.Contracts.Models;
+using Ac.Application.Events;
 using Ac.Application.Models;
 using Ac.Application.Services;
+using Ac.Data;
+using Ac.Data.Repositories;
+using Ac.Data.Tenant;
 using Ac.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
 namespace Ac.Application.Pipeline;
 
 public class InboundPipeline(
-    IChannelTokenResolver tokenResolver,
-    ICurrentTenantContext tenantContext,
+    ApiDb db,
+    ChannelTokenResolver tokenResolver,
+    CurrentTenantContext tenantContext,
     InboundParserRegistry parserRegistry,
     ClientService clientService,
     ConversationService conversationService,
@@ -38,26 +44,32 @@ public class InboundPipeline(
         // 3. Find or create Client (priority: OverrideUserId → ChannelUserId → Email → Phone)
         var client = await clientService.GetOrCreateAsync(channelCtx, inbound.ExternalUserId, overrideUserId: null, email: null, phone: null, ct: ct);
 
-        // 4. Find or create Conversation по клиенту (ChatId — куда отправлять ответы)
-        var chatId = inbound.ChatId ?? inbound.ExternalUserId;
-        var conversation = await conversationService.GetOrCreateAsync(channelCtx, client, chatId, ct);
+        // 4. Find or create Conversation по клиенту (ChatId — куда отправлять ответы); при передаче inbound сохраняется Message в БД
+        var (conversation, createdMessage) = await conversationService.GetOrCreateAsync(channelCtx, client, inbound.ChatId, inbound, ct);
 
-        // 5. AI decision
+        // 5. Добавление евента о новом сообщении. Евент будет обработан асинхронной джобой (HangFire).
+        if (createdMessage is not null)
+        {
+            UserMessageEvent.Create(db, conversation.Id, createdMessage.Id, Guid.Empty);
+            db.SaveChanges();
+        }
+
+        // 6. AI decision
         var decision = await aiDecisionService.DecideAsync(
             new DecisionContext(conversation, inbound, channelCtx), ct);
 
         logger.LogDebug("Decision: {StepKind} (confidence={Confidence:F2})",
             decision.StepKind, decision.Confidence);
 
-        // 6. Step handler -> ReplyIntent
+        // 7. Step handler -> ReplyIntent
         var intent = await stepDispatcher.DispatchAsync(
             new StepContext(conversation, inbound, decision, channelCtx), ct);
 
-        // 7. Deliver via channel adapter (адрес доставки — ChatId, иначе ExternalUserId)
+        // 8. Deliver via channel adapter (адрес доставки — ChatId, иначе ExternalUserId)
         await intentDispatcher.DeliverAsync(
-            new OutboundMessage(chatId, intent, channelCtx), ct);
+            new OutboundMessage(inbound.ChatId, intent, channelCtx), ct);
 
-        // 8. Persist message log + audit (обновляем LastMessage, MessagesCount, Status в диалоге)
+        // 9. Persist message log + audit (обновляем LastMessage, MessagesCount, Status в диалоге)
         await conversationService.SaveInteractionAsync(conversation, inbound, decision, ct);
 
         logger.LogInformation("Pipeline completed for token={Token} user={UserId} step={Step}",

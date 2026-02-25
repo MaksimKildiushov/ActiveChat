@@ -1,3 +1,4 @@
+using Ac.Application.Contracts.Models;
 using Ac.Domain.Entities;
 using Ac.Domain.ValueObjects;
 

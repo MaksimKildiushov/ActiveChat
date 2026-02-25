@@ -1,6 +1,6 @@
 using Ac.Domain.Enums;
 
-namespace Ac.Application.Models;
+namespace Ac.Domain.ValueObjects;
 
 public record ChannelContext(
     int ChannelId,

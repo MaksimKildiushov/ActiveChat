@@ -1,10 +1,9 @@
-using Ac.Application.Interfaces;
 using Ac.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ac.Data.Repositories;
 
-public class ConversationRepository(TenantDb db) : IConversationRepository
+public class ConversationRepository(TenantDb db)
 {
     public Task<ConversationEntity?> FindAsync(
         int channelId, int clientId, CancellationToken ct = default)

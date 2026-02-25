@@ -13,6 +13,7 @@ public class ApiDb(DbContextOptions<ApiDb> options)
     public DbSet<TenantEntity> Tenants => Set<TenantEntity>();
     public DbSet<TenantUserEntity> TenantUsers => Set<TenantUserEntity>();
     public DbSet<ChannelEntity> Channels => Set<ChannelEntity>();
+    public DbSet<EventEntity> Events => Set<EventEntity>();
 
     /// <summary>
     /// Глобальные конвенции типов — применяются ко всем сущностям автоматически.

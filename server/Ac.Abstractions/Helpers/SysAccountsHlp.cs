@@ -1,4 +1,4 @@
-﻿namespace Libraries.Abstractions.Helpers;
+﻿namespace Ac.Abstractions.Helpers;
 
 public static class SysAccountsHlp
 {

@@ -1,7 +1,8 @@
 using Ac.Domain.Entities;
 using Ac.Domain.ValueObjects;
 
-namespace Ac.Application.Models;
+namespace Ac.Application.Contracts.Models;
+
 
 public record DecisionContext(
     ConversationEntity Conversation,

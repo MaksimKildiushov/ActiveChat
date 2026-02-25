@@ -7,13 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Hangfire.Core" Version="1.8.23" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Ac.Abstractions\Ac.Abstractions.csproj" />
     <ProjectReference Include="..\Ac.Application.Contracts\Ac.Application.Contracts.csproj" />
+    <ProjectReference Include="..\Ac.Data\Ac.Data.csproj" />
     <ProjectReference Include="..\Ac.Domain\Ac.Domain.csproj" />
     <ProjectReference Include="..\Connections.JivoSite\Connections.JivoSite.csproj" />
+    <ProjectReference Include="..\Connections.OpenAI\Connections.OpenAI.csproj" />
   </ItemGroup>
 </Project>

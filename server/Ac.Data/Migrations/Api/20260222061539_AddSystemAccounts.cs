@@ -1,4 +1,4 @@
-﻿using Libraries.Abstractions.Helpers;
+﻿using Ac.Abstractions.Helpers;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable

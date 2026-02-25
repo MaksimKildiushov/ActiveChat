@@ -1,6 +1,6 @@
 using Ac.Domain.Enums;
 
-namespace Ac.Application.Models;
+namespace Ac.Application.Contracts.Models;
 
 public record DecisionResult(
     StepKind StepKind,

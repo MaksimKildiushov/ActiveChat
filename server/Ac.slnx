@@ -8,10 +8,12 @@
   </Folder>
   <Folder Name="/Connections/">
     <Project Path="Connections.JivoSite/Connections.JivoSite.csproj" Id="c3ac3e7a-2c25-44d0-8c27-3f93946f2605" />
+    <Project Path="Connections.OpenAI/Connections.OpenAI.csproj" Id="a1b2c3d4-5e6f-7890-abcd-ef1234567890" />
   </Folder>
   <Folder Name="/Extensions/">
     <Project Path="Shared.Extensions/Shared.Extensions.csproj" Id="31952ad0-1f9f-4b94-9db3-03fb4fd81f3b" />
   </Folder>
   <Project Path="Ac.Admin/Ac.Admin.csproj" Id="0382217f-f528-496a-bc6e-48f44362930c" />
   <Project Path="Ac.Api/Ac.Api.csproj" />
+  <Project Path="Ac.Hangfire/Ac.Hangfire.csproj" Id="355a16dc-783a-43de-8571-ec300b6b13f8" />
 </Solution>

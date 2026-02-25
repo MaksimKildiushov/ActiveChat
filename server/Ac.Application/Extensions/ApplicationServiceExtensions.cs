@@ -6,6 +6,7 @@ using Ac.Application.Parsers;
 using Ac.Application.Pipeline;
 using Ac.Application.Services;
 using Connections.JivoSite;
+using Connections.OpenAi;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ac.Application.Extensions;
@@ -31,8 +32,8 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<IStepHandler, HandoffStepHandler>();
         services.AddSingleton<StepDispatcher>();
 
-        // AI decision (заглушка — заменить на реальную реализацию)
-        services.AddScoped<IAiDecisionService, StubAiDecisionService>();
+        // AI decision — OpenAi (подключение из Connections.OpenAi)
+        services.AddOpenAiConnection();
 
         // Core services
         services.AddScoped<ClientService>();

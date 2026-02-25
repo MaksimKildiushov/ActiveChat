@@ -1,10 +1,9 @@
-using Ac.Application.Interfaces;
 using Ac.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ac.Data.Repositories;
 
-public class ClientRepository(TenantDb db) : IClientRepository
+public class ClientRepository(TenantDb db)
 {
     public Task<ClientEntity?> FindByOverrideUserIdAsync(string overrideUserId, CancellationToken ct = default)
         => db.Clients.FirstOrDefaultAsync(c => c.OverrideUserId == overrideUserId, ct);

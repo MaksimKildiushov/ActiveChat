@@ -1,6 +1,6 @@
+using Ac.Data.Tenant;
 using Ac.Domain.Entities;
 using Ac.Domain.Enums;
-using Ac.Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -15,11 +15,11 @@ public class TenantDb : DbContext
     /// <summary>Схема для design-time (ef migrations add) и для раннера миграций.</summary>
     public const string DesignTimeSchema = "tenant_template";
 
-    private readonly ICurrentTenantContext? _tenantContext;
+    private readonly CurrentTenantContext? _tenantContext;
     private readonly string? _schemaNameForDesignTime;
 
     /// <summary>Рантайм: схема берётся из контекста запроса.</summary>
-    public TenantDb(DbContextOptions<TenantDb> options, ICurrentTenantContext tenantContext)
+    public TenantDb(DbContextOptions<TenantDb> options, CurrentTenantContext tenantContext)
         : base(options)
     {
         _tenantContext = tenantContext;
@@ -46,6 +46,8 @@ public class TenantDb : DbContext
         configurationBuilder.Properties<ChannelType>().HaveConversion<string>();
         configurationBuilder.Properties<StepKind>().HaveConversion<string>();
         configurationBuilder.Properties<MessageDirection>().HaveConversion<string>();
+        configurationBuilder.Properties<MessageType>().HaveConversion<string>();
+        configurationBuilder.Properties<MessageStatus>().HaveConversion<string>();
         configurationBuilder.Properties<ChatStatus>().HaveConversion<string>();
         configurationBuilder.Properties<ChatRating>().HaveConversion<string>();
     }

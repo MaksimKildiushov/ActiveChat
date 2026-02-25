@@ -1,6 +1,6 @@
-using Ac.Application.Models;
+using Ac.Application.Contracts.Models;
 
-namespace Ac.Application.Interfaces;
+namespace Ac.Application.Contracts.Interfaces;
 
 public interface IAiDecisionService
 {

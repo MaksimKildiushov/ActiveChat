@@ -1,11 +1,9 @@
-using Ac.Application.Interfaces;
-using Ac.Application.Models;
 using Ac.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ac.Data.Repositories;
 
-public class ChannelTokenResolver(ApiDb db) : IChannelTokenResolver
+public class ChannelTokenResolver(ApiDb db)
 {
     public async Task<ChannelContext?> ResolveAsync(ChannelToken token, CancellationToken ct = default)
     {
