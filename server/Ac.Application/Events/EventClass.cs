@@ -154,10 +154,5 @@ public class EventClass(ApiDb db, EventEntity dbModel, ILogger<object> logger)
         Logger.LogDebug("Event {EventId} processed successfully", DbModel.Id);
     }
 
-    private async Task SaveChangesAsync()
-    {
-        DbModel.ModifierId = SysAccountsHlp.Api.Id;
-        DbModel.Modified = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-    }
+    private async Task SaveChangesAsync() => await _db.SaveChangesAsync();
 }

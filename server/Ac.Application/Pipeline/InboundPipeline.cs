@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace Ac.Application.Pipeline;
 
 public class InboundPipeline(
-    ApiDb db,
+    ApiDb apiDb,
     ChannelTokenResolver tokenResolver,
     CurrentTenantContext tenantContext,
     InboundParserRegistry parserRegistry,
@@ -47,11 +47,10 @@ public class InboundPipeline(
         }
 
         // 5. Добавление евента о новом сообщении. Евент будет обработан асинхронной джобой (HangFire),
-        //    которая выполнит шаги 6–9: AI decision → step handler → deliver → SaveInteraction.
-        UserMessageEvent.Create(db, channelCtx.TenantId, conversation.Id, createdMessage.Id, client.Id);
-        db.SaveChanges();
+        UserMessageEvent.Create(apiDb, channelCtx.TenantId, conversation.Id, createdMessage.Id, client.Id);
 
-        logger.LogInformation("Inbound pipeline saved (steps 1–5) for token={Token} user={UserId}; steps 6–9 will run in background.",
+        await apiDb.SaveChangesAsync(ct);
+        logger.LogDebug("Inbound pipeline saved (steps 1–5) for token={Token} user={UserId}; steps 6–9 will run in background.",
             channelToken, inbound.ExternalUserId);
     }
 }
