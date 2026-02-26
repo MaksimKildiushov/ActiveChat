@@ -17,4 +17,7 @@ public class ConversationRepository(TenantDb db)
         await db.SaveChangesAsync(ct);
         return conversation;
     }
+
+    public Task SaveChangesAsync(CancellationToken ct = default)
+        => db.SaveChangesAsync(ct);
 }

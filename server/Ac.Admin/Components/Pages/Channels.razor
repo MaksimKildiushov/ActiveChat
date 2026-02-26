@@ -2,6 +2,9 @@
 @attribute [Authorize(Roles = "Admin")]
 @rendermode InteractiveServer
 
+@using System.Text.Json
+@using System.Text.Json.Serialization
+
 @inject ApiDb Db
 @inject IJSRuntime JS
 @inject ICurrentUserSetter CurrentUserSetter
@@ -21,6 +24,51 @@
         @successMessage
         <button type="button" class="btn-close btn-sm" @onclick="() => successMessage = null"></button>
     </div>
+}
+
+@if (editingChannelId is int editId)
+{
+    var editingChannel = channels.FirstOrDefault(c => c.Id == editId);
+    if (editingChannel is not null)
+    {
+        <div class="card mb-4 border-primary">
+            <div class="card-header fw-semibold">
+                Настройки канала #@editingChannel.Id — @editingChannel.ChannelType
+            </div>
+            <div class="card-body">
+                @if (editFormError is not null)
+                {
+                    <div class="alert alert-danger small py-2">@editFormError</div>
+                }
+
+                @if (editingChannel.ChannelType == ChannelType.JivoSite)
+                {
+                    <EditForm Model="EditInput" OnValidSubmit="HandleSaveSettings">
+                        <div class="mb-3">
+                            <label class="form-label">Webhook URL (Jivo)</label>
+                            <InputText @bind-Value="EditInput.JivoWebhookUrl" class="form-control" placeholder="https://..." />
+                            <small class="text-muted">Может быть пустым на стадии запуска.</small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@isEditSubmitting">
+                                @if (isEditSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Сохранить
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CancelEdit">Отмена</button>
+                        </div>
+                    </EditForm>
+                }
+                else
+                {
+                    <p class="text-muted small mb-2">Для этого типа канала отдельные настройки не задаются.</p>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CancelEdit">Закрыть</button>
+                }
+            </div>
+        </div>
+    }
 }
 
 @if (formVisible)
@@ -57,6 +105,15 @@
                         }
                     </InputSelect>
                 </div>
+
+                @if (Input.ChannelType == ChannelType.JivoSite)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Webhook URL (Jivo)</label>
+                        <InputText @bind-Value="Input.JivoWebhookUrl" class="form-control" placeholder="https://..." />
+                        <small class="text-muted">Можно оставить пустым и указать позже в редактировании.</small>
+                    </div>
+                }
 
                 <div class="mb-4 form-check">
                     <InputCheckbox @bind-Value="Input.IsActive" class="form-check-input" id="chkActive" />
@@ -96,6 +153,7 @@
                         <th>Webhook-токен</th>
                         <th style="width:6rem">Активен</th>
                         <th>Создан</th>
+                        <th style="width:8rem"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -127,6 +185,12 @@
                                 }
                             </td>
                             <td class="text-muted small">@ch.Created.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>
+                                <button class="btn btn-outline-primary btn-sm" title="Редактировать настройки"
+                                        @onclick='() => StartEdit(ch)'>
+                                    <span class="bi bi-pencil-square"></span> Редактировать
+                                </button>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -146,6 +210,11 @@
     private bool isSubmitting;
     private string? formError;
     private string? successMessage;
+
+    private int? editingChannelId;
+    private EditChannelInput EditInput { get; set; } = new();
+    private string? editFormError;
+    private bool isEditSubmitting;
 
     protected override async Task OnInitializedAsync()
     {
@@ -210,6 +279,7 @@
                 IsActive = Input.IsActive,
                 AuthorId = authorGuid,
                 Created = DateTime.UtcNow,
+                SettingsJson = BuildJivoSettingsJson(Input.ChannelType, Input.JivoWebhookUrl),
             };
 
             Db.Channels.Add(channel);
@@ -231,6 +301,69 @@
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
     }
 
+    private void StartEdit(ChannelEntity ch)
+    {
+        editingChannelId = ch.Id;
+        editFormError = null;
+        EditInput = ch.ChannelType == ChannelType.JivoSite
+            ? new EditChannelInput { JivoWebhookUrl = ParseJivoWebhookUrl(ch.SettingsJson) }
+            : new EditChannelInput();
+    }
+
+    private void CancelEdit()
+    {
+        editingChannelId = null;
+        editFormError = null;
+    }
+
+    private async Task HandleSaveSettings()
+    {
+        if (editingChannelId is not int id) return;
+
+        isEditSubmitting = true;
+        editFormError = null;
+
+        try
+        {
+            var channel = await Db.Channels.FindAsync(id);
+            if (channel is null)
+            {
+                editFormError = "Канал не найден.";
+                return;
+            }
+
+            if (channel.ChannelType == ChannelType.JivoSite)
+            {
+                channel.SettingsJson = string.IsNullOrWhiteSpace(EditInput.JivoWebhookUrl)
+                    ? null
+                    : JsonSerializer.Serialize(new { webhookUrl = EditInput.JivoWebhookUrl!.Trim() });
+            }
+
+            await Db.SaveChangesAsync();
+            successMessage = "Настройки канала сохранены.";
+            editingChannelId = null;
+            await LoadChannelsAsync();
+        }
+        finally
+        {
+            isEditSubmitting = false;
+        }
+    }
+
+    private static string? ParseJivoWebhookUrl(string? settingsJson)
+    {
+        if (string.IsNullOrWhiteSpace(settingsJson)) return null;
+        try
+        {
+            var dto = JsonSerializer.Deserialize<JivoSettingsDto>(settingsJson);
+            return dto?.WebhookUrl;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private sealed class CreateChannelInput
     {
         [Range(1, int.MaxValue, ErrorMessage = "Выберите тенанта")]
@@ -239,5 +372,25 @@
         public ChannelType ChannelType { get; set; } = ChannelType.Webhook;
 
         public bool IsActive { get; set; } = true;
+
+        public string? JivoWebhookUrl { get; set; }
+    }
+
+    private static string? BuildJivoSettingsJson(ChannelType channelType, string? webhookUrl)
+    {
+        if (channelType != ChannelType.JivoSite) return null;
+        if (string.IsNullOrWhiteSpace(webhookUrl)) return null;
+        return JsonSerializer.Serialize(new { webhookUrl = webhookUrl.Trim() });
+    }
+
+    private sealed class EditChannelInput
+    {
+        public string? JivoWebhookUrl { get; set; }
+    }
+
+    private sealed class JivoSettingsDto
+    {
+        [JsonPropertyName("webhookUrl")]
+        public string? WebhookUrl { get; set; }
     }
 }

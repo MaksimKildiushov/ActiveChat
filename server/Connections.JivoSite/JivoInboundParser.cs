@@ -1,4 +1,5 @@
 using Ac.Application.Contracts.Interfaces;
+using Ac.Application.Contracts.Models;
 using Ac.Domain.Enums;
 using Ac.Domain.ValueObjects;
 using System.Text.Json;
@@ -14,7 +15,7 @@ public sealed class JivoInboundParser : IInboundParser
 
     public ChannelType ChannelType => ChannelType.JivoSite;
 
-    public UnifiedInboundMessage Parse(string rawJson)
+    public InboundParseResult Parse(string rawJson)
     {
         if (string.IsNullOrWhiteSpace(rawJson))
             throw new ArgumentException("rawJson is empty", nameof(rawJson));
@@ -24,6 +25,20 @@ public sealed class JivoInboundParser : IInboundParser
 
         var evt = payload.Deserialize<JivoInboundMessage>(JsonOptions)
                   ?? throw new InvalidOperationException("Failed to deserialize Jivo payload.");
+
+        // CHAT_CLOSED — базовый сценарий: канал сообщает, что чат завершён.
+        if (string.Equals(evt.Event, "CHAT_CLOSED", StringComparison.OrdinalIgnoreCase))
+        {
+            var closedMsg = new UnifiedInboundMessage(
+                ExternalUserId: evt.ClientId,
+                ChatId: evt.ChatId,
+                Text: string.Empty,
+                Attachments: Array.Empty<string>(),
+                Timestamp: DateTimeOffset.UtcNow,
+                RawJson: rawJson);
+
+            return new InboundParseResult(InboundParseStatus.ChatClosed, closedMsg);
+        }
 
         if (!string.Equals(evt.Event, "CLIENT_MESSAGE", StringComparison.OrdinalIgnoreCase))
             throw new NotSupportedException($"Unsupported Jivo event: '{evt.Event}'.");
@@ -37,7 +52,7 @@ public sealed class JivoInboundParser : IInboundParser
 
         var attachments = ExtractAttachments(payload);
 
-        return new UnifiedInboundMessage(
+        var message = new UnifiedInboundMessage(
             ExternalUserId: evt.ClientId,
             ChatId: evt.ChatId,
             Text: text,
@@ -45,6 +60,8 @@ public sealed class JivoInboundParser : IInboundParser
             Timestamp: timestamp,
             RawJson: rawJson
         );
+
+        return new InboundParseResult(InboundParseStatus.Message, message);
     }
 
     private static JsonElement ExtractPayload(JsonElement root)

@@ -77,17 +77,17 @@ public class ConversationService(
 
     public async Task SaveInteractionAsync(
         ConversationEntity conversation,
-        UnifiedInboundMessage inbound,
         DecisionResult decision,
         ReplyIntent replyIntent,
         CancellationToken ct = default)
     {
 
-        conversation.LastMessage = inbound.Text;
+        var replyText = GetReplyText(replyIntent);
+
+        conversation.LastMessage = replyText;
         conversation.MessagesCount += 1;
         conversation.Status = ChatStatus.Active;
 
-        var replyText = GetReplyText(replyIntent);
         if (!string.IsNullOrEmpty(replyText))
         {
             await messages.AddAsync(new MessageEntity

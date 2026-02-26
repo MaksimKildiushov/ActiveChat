@@ -1,4 +1,4 @@
-﻿using Ac.Application.Contracts.Interfaces;
+using Ac.Application.Contracts.Interfaces;
 using Ac.Application.Contracts.Models;
 using Ac.Domain.Enums;
 using Ac.Domain.ValueObjects;
@@ -20,9 +20,9 @@ public sealed class JivoDeliveryAdapter(HttpClient http) : IChannelDeliveryAdapt
 
         var settings = JivoSettings.FromJson(message.ChannelContext.SettingsJson);
 
-        // Jivo требует и chat_id, и client_id
+        // chat_id и client_id приходят от Jivo в каждом сообщении; client_id передаётся в OutboundMessage.ChannelUserId
         var chatId = message.ChatId;
-        var clientId = settings.ClientId;
+        var clientId = message.ClientId;
 
         var payloads = BuildPayloads(message.Intent, clientId, chatId);
 
@@ -86,19 +86,14 @@ public sealed class JivoDeliveryAdapter(HttpClient http) : IChannelDeliveryAdapt
         [JsonPropertyName("webhookUrl")]
         public string WebhookUrl { get; init; } = default!;
 
-        [JsonPropertyName("clientId")]
-        public string ClientId { get; init; } = default!;
-
         public static JivoSettings FromJson(string? settingsJson)
         {
             if (string.IsNullOrWhiteSpace(settingsJson))
-                throw new InvalidOperationException("ChannelContext.SettingsJson is empty. Expected Jivo settings with webhookUrl and clientId.");
+                throw new InvalidOperationException("ChannelContext.SettingsJson is empty. Expected Jivo settings with webhookUrl.");
 
             var settings = JsonSerializer.Deserialize<JivoSettings>(settingsJson, Options);
-            if (settings is null ||
-                string.IsNullOrWhiteSpace(settings.WebhookUrl) ||
-                string.IsNullOrWhiteSpace(settings.ClientId))
-                throw new InvalidOperationException("Invalid Jivo settings. Expected JSON: {\"webhookUrl\":\"...\",\"clientId\":\"...\"}");
+            if (settings is null || string.IsNullOrWhiteSpace(settings.WebhookUrl))
+                throw new InvalidOperationException("Invalid Jivo settings. Expected JSON: {\"webhookUrl\":\"...\"}.");
 
             return settings;
         }

@@ -1,4 +1,5 @@
 using Ac.Application.Contracts.Interfaces;
+using Ac.Application.Contracts.Models;
 using Ac.Domain.Enums;
 using Ac.Domain.ValueObjects;
 using System.Text.Json;
@@ -13,7 +14,7 @@ public class TelegramParser : IInboundParser
 {
     public ChannelType ChannelType => ChannelType.Telegram;
 
-    public UnifiedInboundMessage Parse(string rawJson)
+    public InboundParseResult Parse(string rawJson)
     {
         using var doc = JsonDocument.Parse(rawJson);
         var root = doc.RootElement;
@@ -30,12 +31,14 @@ public class TelegramParser : IInboundParser
             ? DateTimeOffset.FromUnixTimeSeconds(dateProp.GetInt64())
             : DateTimeOffset.UtcNow;
 
-        return new UnifiedInboundMessage(
+        var unified = new UnifiedInboundMessage(
             ExternalUserId: externalUserId,
             ChatId: chatId,
             Text: text,
             Attachments: [],
             Timestamp: timestamp,
             RawJson: rawJson);
+
+        return new InboundParseResult(InboundParseStatus.Message, unified);
     }
 }

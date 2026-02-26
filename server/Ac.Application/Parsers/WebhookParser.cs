@@ -1,4 +1,5 @@
 using Ac.Application.Contracts.Interfaces;
+using Ac.Application.Contracts.Models;
 using Ac.Domain.Enums;
 using Ac.Domain.ValueObjects;
 using System.Text.Json;
@@ -13,7 +14,7 @@ public class WebhookParser : IInboundParser
 {
     public ChannelType ChannelType => ChannelType.Webhook;
 
-    public UnifiedInboundMessage Parse(string rawJson)
+    public InboundParseResult Parse(string rawJson)
     {
         using var doc = JsonDocument.Parse(rawJson);
         var root = doc.RootElement;
@@ -32,12 +33,14 @@ public class WebhookParser : IInboundParser
             ? parsed
             : DateTimeOffset.UtcNow;
 
-        return new UnifiedInboundMessage(
+        var unified = new UnifiedInboundMessage(
             ExternalUserId: userId,
             ChatId: chatId,
             Text: text,
             Attachments: [],
             Timestamp: timestamp,
             RawJson: rawJson);
+
+        return new InboundParseResult(InboundParseStatus.Message, unified);
     }
 }

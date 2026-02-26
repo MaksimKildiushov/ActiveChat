@@ -50,9 +50,9 @@ public class TaskProcessInboundMessage(
             new StepContext(ctx.Conversation, ctx.Inbound, decision, ctx.ChannelCtx), ct);
 
         await intentDispatcher.DeliverAsync(
-            new OutboundMessage(ctx.Inbound.ChatId ?? string.Empty, intent, ctx.ChannelCtx), ct);
+            new OutboundMessage(ctx.Inbound.ChatId ?? string.Empty, intent, ctx.ChannelCtx, ctx.Inbound.ExternalUserId), ct);
 
-        await conversationService.SaveInteractionAsync(ctx.Conversation, ctx.Inbound, decision, intent, ct);
+        await conversationService.SaveInteractionAsync(ctx.Conversation, decision, intent, ct);
 
         logger.LogInformation(
             "TaskProcessInboundMessage completed for ConversationId={ConversationId}, Step={Step}",
@@ -114,7 +114,15 @@ public class TaskProcessInboundMessage(
         {
             try
             {
-                return parserRegistry.GetParser(channelType).Parse(message.RawJson);
+                var parseResult = parserRegistry.GetParser(channelType).Parse(message.RawJson);
+                if (parseResult.Status != InboundParseStatus.Message || parseResult.Message is null)
+                {
+                    var msgStatus = parseResult.Status.ToString();
+                    throw new InvalidOperationException(
+                        $"Unexpected inbound parse status '{msgStatus}' when restoring message from history (MessageId={message.Id}, ConversationId={conversation.Id}, TenantId={tenantId}).");
+                }
+
+                return parseResult.Message;
             }
             catch (Exception ex)
             {

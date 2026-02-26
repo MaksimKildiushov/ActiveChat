@@ -39,6 +39,11 @@ public static class ApplicationServiceExtensions
         // Core services
         services.AddScoped<ClientService>();
         services.AddScoped<ConversationService>();
+
+        // Repositories for pipeline helpers
+        services.AddScoped<Ac.Data.Repositories.ClientRepository>();
+        services.AddScoped<Ac.Data.Repositories.ConversationRepository>();
+
         services.AddScoped<InboundPipeline>();
 
         return services;
