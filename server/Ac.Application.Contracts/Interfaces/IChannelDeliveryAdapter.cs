@@ -1,7 +1,7 @@
-using Ac.Application.Models;
+using Ac.Application.Contracts.Models;
 using Ac.Domain.Enums;
 
-namespace Ac.Application.Interfaces;
+namespace Ac.Application.Contracts.Interfaces;
 
 public interface IChannelDeliveryAdapter
 {

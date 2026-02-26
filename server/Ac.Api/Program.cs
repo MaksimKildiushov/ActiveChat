@@ -1,3 +1,4 @@
+using Ac.Abstractions.Options;
 using Ac.Api.Filters;
 using Ac.Application.Extensions;
 using Ac.Data;
@@ -103,6 +104,24 @@ void ConfigureServices(IServiceCollection services, IConfiguration cfg)
     services.AddAuthorization();
 
     #endregion
+
+#if SELFHOSTED
+    //Https в локальной среде с подлинными сертификатами (например, для тестирования входящих WebHook Telegram).
+
+    var selfHostedRunOptions = cfg.GetSection("SelfHostedRun").Get<SelfHostedRunOptions>()!;
+
+    var certificatePath = Path.Combine(builder.Environment.ContentRootPath, selfHostedRunOptions.CertificatePath);
+    var clientCertificate = System.Security.Cryptography.X509Certificates.X509CertificateLoader
+        .LoadPkcs12FromFile(certificatePath, selfHostedRunOptions.CertificatePassword);
+
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.ConfigureHttpsDefaults(httpsOptions =>
+        {
+            httpsOptions.ServerCertificate = clientCertificate;
+        });
+    });
+#endif
 
 }
 

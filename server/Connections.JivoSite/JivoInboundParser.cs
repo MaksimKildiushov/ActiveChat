@@ -22,7 +22,7 @@ public sealed class JivoInboundParser : IInboundParser
         using var doc = JsonDocument.Parse(rawJson);
         JsonElement payload = ExtractPayload(doc.RootElement);
 
-        var evt = payload.Deserialize<JivoClientMessageEvent>(JsonOptions)
+        var evt = payload.Deserialize<JivoInboundMessage>(JsonOptions)
                   ?? throw new InvalidOperationException("Failed to deserialize Jivo payload.");
 
         if (!string.Equals(evt.Event, "CLIENT_MESSAGE", StringComparison.OrdinalIgnoreCase))

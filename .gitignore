@@ -82,3 +82,4 @@ dkms.conf
 
 # .NET SDK design-time build host (создаётся при dotnet ef / MSBuild source generators)
 BuildHost-*/
+/server/Ac.Api/wwwroot/certificate.pfx

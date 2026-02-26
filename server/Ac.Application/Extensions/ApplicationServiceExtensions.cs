@@ -16,14 +16,15 @@ public static class ApplicationServiceExtensions
     public static IServiceCollection AddDi(this IServiceCollection services)
     {
         // Parsers — добавление нового канала: новый IInboundParser + IChannelDeliveryAdapter
-        services.AddSingleton<IInboundParser, TelegramLikeParser>();
+        services.AddSingleton<IInboundParser, TelegramParser>();
         services.AddSingleton<IInboundParser, WebhookParser>();
         services.AddSingleton<IInboundParser, JivoInboundParser>();
         services.AddSingleton<InboundParserRegistry>();
 
         // Adapters
-        services.AddSingleton<IChannelDeliveryAdapter, TelegramAdapter>();
-        services.AddSingleton<IChannelDeliveryAdapter, WebhookAdapter>();
+        services.AddSingleton<IChannelDeliveryAdapter, TelegramDeliveryAdapter>();
+        services.AddSingleton<IChannelDeliveryAdapter, WebhookDeliveryAdapter>();
+        services.AddSingleton<IChannelDeliveryAdapter, JivoDeliveryAdapter>();
         services.AddSingleton<IntentDispatcher>();
 
         // Step handlers — добавление нового шага: новый IStepHandler

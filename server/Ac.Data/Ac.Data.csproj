@@ -4,6 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Ac.Data</RootNamespace>
+    <Configurations>Debug;Release;Selfhosted</Configurations>
   </PropertyGroup>
 
   <ItemGroup>

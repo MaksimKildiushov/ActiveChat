@@ -9,7 +9,7 @@ namespace Ac.Application.Parsers;
 /// Ожидает Telegram-like JSON:
 /// { "update_id": 123, "message": { "from": { "id": 456 }, "text": "Hello", "date": 1700000000 } }
 /// </summary>
-public class TelegramLikeParser : IInboundParser
+public class TelegramParser : IInboundParser
 {
     public ChannelType ChannelType => ChannelType.Telegram;
 

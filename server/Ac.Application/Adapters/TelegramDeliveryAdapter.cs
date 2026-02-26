@@ -1,12 +1,12 @@
-using Ac.Application.Interfaces;
-using Ac.Application.Models;
+using Ac.Application.Contracts.Interfaces;
+using Ac.Application.Contracts.Models;
 using Ac.Domain.Enums;
 using Ac.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
 namespace Ac.Application.Adapters;
 
-public class TelegramAdapter(ILogger<TelegramAdapter> logger) : IChannelDeliveryAdapter
+public class TelegramDeliveryAdapter(ILogger<TelegramDeliveryAdapter> logger) : IChannelDeliveryAdapter
 {
     public ChannelType ChannelType => ChannelType.Telegram;
 

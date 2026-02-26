@@ -1,4 +1,9 @@
 <Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <BuildType Name="Selfhosted" />
+  </Configurations>
   <Folder Name="/Ac/">
     <Project Path="Ac.Abstractions/Ac.Abstractions.csproj" Id="e61bfd3b-d044-44fc-b35f-885a2c604b9c" />
     <Project Path="Ac.Application.Contracts/Ac.Application.Contracts.csproj" Id="aeaa0b5b-1838-4aeb-9cf2-602cdf04eebe" />
