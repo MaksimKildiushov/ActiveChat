@@ -57,7 +57,7 @@ public class UserMessageEvent(
 
     protected override void EnqueueTask(UserMessagePayload payload)
     {
-        BackgroundJob.Enqueue<TaskProcessInboundMessage>(x => x.Execute(
+        BackgroundJob.Enqueue<ProcessInboundMessageTask>(x => x.Execute(
             payload.TenantId,
             payload.ConversationId,
             payload.MessageId,

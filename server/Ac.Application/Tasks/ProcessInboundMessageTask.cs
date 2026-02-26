@@ -15,7 +15,7 @@ namespace Ac.Application.Tasks;
 /// Hangfire-задача: выполняет шаги 6–9 пайплайна входящих сообщений после записи в БД и создания UserMessageEvent.
 /// Вызывается из <see cref="Events.UserMessageEvent"/> по payload (TenantId, ConversationId, MessageId, UserId).
 /// </summary>
-public class TaskProcessInboundMessage(
+public class ProcessInboundMessageTask(
     ApiDb apiDb,
     TenantDb tenantDb,
     CurrentTenantContext tenantContext,
@@ -24,8 +24,8 @@ public class TaskProcessInboundMessage(
     StepDispatcher stepDispatcher,
     IntentDispatcher intentDispatcher,
     ConversationService conversationService,
-    ILogger<TaskProcessInboundMessage> logger)
-    : HangfireTaskBase<TaskProcessInboundMessage.Args, TaskProcessInboundMessage.Context>
+    ILogger<ProcessInboundMessageTask> logger)
+    : HangfireTaskBase<ProcessInboundMessageTask.Args, ProcessInboundMessageTask.Context>
 {
     /// <summary>
     /// Выполняет шаги: 6) AI decision, 7) step handler → ReplyIntent, 8) deliver, 9) SaveInteraction.
@@ -92,7 +92,7 @@ public class TaskProcessInboundMessage(
             channel.SettingsJson);
 
         var inbound = EnsureNotNull(
-            RestoreInboundMessage(conversation, message, channel.ChannelType, channel.TenantId),
+            RestoreInboundMessage(conversation, message, channel.ChannelType, args.TenantId),
             $"Could not restore UnifiedInboundMessage for MessageId={args.MessageId} (ConversationId={args.ConversationId}, TenantId={args.TenantId}).");
 
         return new Context(conversation, message, channelCtx, inbound);

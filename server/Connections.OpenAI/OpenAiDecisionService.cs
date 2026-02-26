@@ -1,10 +1,10 @@
-using System.Net.Http.Json;
-using System.Text.Json;
 using Ac.Application.Contracts.Interfaces;
 using Ac.Application.Contracts.Models;
 using Ac.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Connections.OpenAi;
 

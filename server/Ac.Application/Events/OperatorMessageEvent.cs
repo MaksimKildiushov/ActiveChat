@@ -64,7 +64,7 @@ public class OperatorMessageEvent(
 
     protected override void EnqueueTask(OperatorMessagePayload payload)
     {
-        BackgroundJob.Enqueue<TaskCloneChatMessageToTg>(x => x.Execute(
+        BackgroundJob.Enqueue<CloneChatMessageToTgTask>(x => x.Execute(
             payload.ChatId,
             payload.MessageId,
             payload.OperatorId));

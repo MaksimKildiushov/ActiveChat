@@ -14,15 +14,14 @@ public class ConversationService(
     UnitOfWork unitOfWork)
 {
     /// <summary>Возвращает диалог и созданное входящее сообщение (если inbound передан).</summary>
-    public async Task<(ConversationEntity conversation, MessageEntity? createdMessage)> GetOrCreateAsync(
+    public async Task<(ConversationEntity conversation, MessageEntity createdMessage)> GetOrCreateAsync(
         ChannelContext channelCtx,
         ClientEntity client,
         string? chatId,
         UnifiedInboundMessage inbound,
         CancellationToken ct = default)
     {
-        var existing = await conversations.FindAsync(
-            channelCtx.ChannelId, client.Id, ct);
+        var existing = await conversations.FindAsync(channelCtx.ChannelId, client.Id, ct);
 
         if (existing is not null)
         {
@@ -32,20 +31,8 @@ public class ConversationService(
                 existing.ChatId = chatId;
                 hasChanges = true;
             }
-
-            MessageEntity? addedMessage = null;
-            existing.LastMessage = inbound.Text;
-            existing.MessagesCount += 1;
-            existing.Status = ChatStatus.Active;
-            var message = new MessageEntity
-            {
-                ConversationId = existing.Id,
-                Direction = MessageDirection.Inbound,
-                Content = inbound.Text,
-                RawJson = inbound.RawJson
-            };
-            await messages.AddAsync(message, ct);
-            addedMessage = message;
+            ApplyInboundToConversation(existing, inbound, isNew: false);
+            var addedMessage = await AddInboundMessageAsync(existing, inbound, ct);
             hasChanges = true;
 
             if (hasChanges)
@@ -53,40 +40,64 @@ public class ConversationService(
             return (existing, addedMessage);
         }
 
-        ConversationEntity conversation = new()
+        var conversation = new ConversationEntity
         {
             ChannelId = channelCtx.ChannelId,
             ClientId = client.Id,
             ChatId = chatId,
         };
-
         conversation = await conversations.CreateAsync(conversation, ct);
 
-        conversation.LastMessage = inbound.Text;
-        conversation.MessagesCount = 1;
-        conversation.Status = ChatStatus.Active;
-        var newMessage = new MessageEntity
-        {
-            ConversationId = conversation.Id,
-            Direction = MessageDirection.Inbound,
-            Content = inbound.Text,
-            RawJson = inbound.RawJson
-        };
-        await messages.AddAsync(newMessage, ct);
+        ApplyInboundToConversation(conversation, inbound, isNew: true);
+        var newMessage = await AddInboundMessageAsync(conversation, inbound, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return (conversation, newMessage);
+
+        void ApplyInboundToConversation(ConversationEntity c, UnifiedInboundMessage inb, bool isNew)
+        {
+            c.LastMessage = inb.Text;
+            c.Status = ChatStatus.Active;
+            c.MessagesCount = isNew ? 1 : c.MessagesCount + 1;
+        }
+
+        async Task<MessageEntity> AddInboundMessageAsync(ConversationEntity conv, UnifiedInboundMessage inb, CancellationToken token)
+        {
+            var msg = new MessageEntity
+            {
+                ConversationId = conv.Id,
+                Direction = MessageDirection.Inbound,
+                Content = inb.Text,
+                RawJson = inb.RawJson
+            };
+            await messages.AddAsync(msg, token);
+            return msg;
+        }
     }
 
     public async Task SaveInteractionAsync(
         ConversationEntity conversation,
         UnifiedInboundMessage inbound,
         DecisionResult decision,
+        ReplyIntent replyIntent,
         CancellationToken ct = default)
     {
+
         conversation.LastMessage = inbound.Text;
         conversation.MessagesCount += 1;
         conversation.Status = ChatStatus.Active;
+
+        var replyText = GetReplyText(replyIntent);
+        if (!string.IsNullOrEmpty(replyText))
+        {
+            await messages.AddAsync(new MessageEntity
+            {
+                ConversationId = conversation.Id,
+                Direction = MessageDirection.Outbound,
+                Content = replyText,
+                RawJson = null
+            }, ct);
+        }
 
         await audits.AddAsync(new DecisionAuditEntity
         {
@@ -99,5 +110,14 @@ public class ConversationService(
         }, ct);
 
         await unitOfWork.SaveChangesAsync(ct);
+
+        static string GetReplyText(ReplyIntent intent) =>
+            intent switch
+            {
+                TextIntent t => t.Text,
+                ButtonsIntent b => b.Text,
+                HandoffIntent h => h.Message ?? string.Empty,
+                _ => string.Empty
+            };
     }
 }

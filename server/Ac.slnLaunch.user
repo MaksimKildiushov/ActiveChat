@@ -1,0 +1,21 @@
+[
+  {
+    "Name": "all",
+    "Projects": [
+      {
+        "Path": "Ac.Admin\\Ac.Admin.csproj",
+        "Action": "Start",
+        "DebugTarget": "adm ssl"
+      },
+      {
+        "Path": "Ac.Api\\Ac.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "Ac.Hangfire\\Ac.Hangfire.csproj",
+        "Action": "Start",
+        "DebugTarget": "jobs ssl"
+      }
+    ]
+  }
+]

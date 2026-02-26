@@ -7,10 +7,10 @@ namespace Ac.Application.Tasks;
 /// <summary>
 /// Задача для дублирования новых сообщений в TG чате-админке (посредник n8n).
 /// </summary>
-public class TaskCloneChatMessageToTg(
+public class CloneChatMessageToTgTask(
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
-    ILogger<TaskCloneChatMessageToTg> logger)
+    ILogger<CloneChatMessageToTgTask> logger)
 {
     /// <summary>
     /// Отправляет уведомление о новом сообщении через n8n webhook (для UserMessage: tenantId, conversationId, messageId, userId).

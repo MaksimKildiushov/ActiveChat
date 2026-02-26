@@ -1,4 +1,3 @@
-using Ac.Application.Contracts.Models;
 using Ac.Application.Interfaces;
 using Ac.Application.Models;
 using Ac.Domain.Enums;
