@@ -8,7 +8,10 @@ using Ac.Data.Extensions;
 using Ac.Domain.Entities;
 using Hangfire;
 using Hangfire.PostgreSql;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server;
 using Microsoft.EntityFrameworkCore;
 
 // Запуск миграций тенантов вместо веб-приложения (для CI/CD: dotnet run -- migrate_tenants)
@@ -63,20 +66,21 @@ builder.Configuration
     .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
 
+#region Infra
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
 builder.Services.AddHttpContextAccessor();
-
-#region Infra
 
 // В Blazor Server HttpContext недоступен во время SignalR-вызовов.
 // ScopedCurrentUser инициализируется в MainLayout из CascadingAuthenticationState.
 builder.Services.AddScoped<ScopedCurrentUser>();
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<ScopedCurrentUser>());
 builder.Services.AddScoped<ICurrentUserSetter>(sp => sp.GetRequiredService<ScopedCurrentUser>());
-builder.Services.AddSingleton<IDateTimeProvider, SystemClock>();
+builder.Services.AddSingleton<IDateTimeProvider, Ac.Data.Accessors.SystemClock>();
 builder.Services.AddScoped<AuditingInterceptor>();
 
 // Использовать только для кеша токенов на 5 минут. В остальном - подход stateless!
@@ -97,26 +101,43 @@ builder.Services.AddDbContext<TenantDb>((sp, opts) =>
 builder.Services.AddDi();
 builder.Services.AddInfrastructure();
 
+builder.Services.AddHttpClient<IAuthApiClient, AuthApiClient>();
+
 #endregion
 
-builder.Services.AddIdentity<UserEntity, IdentityRole<Guid>>(options =>
-{
-    options.Password.RequireDigit = true;
-    options.Password.RequiredLength = 6;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequireUppercase = false;
-    options.User.RequireUniqueEmail = true;
-    options.SignIn.RequireConfirmedAccount = false;
-})
-.AddEntityFrameworkStores<ApiDb>()
-.AddDefaultTokenProviders();
+// OIDC: вход через Ac.Auth
+var oidcAuthority = (builder.Configuration["Infra:AuthBaseUrl"] ?? builder.Configuration["AuthForAdmin:Authority"])?.TrimEnd('/') ?? "https://localhost:7189";
+var oidcClientId = builder.Configuration["AuthForAdmin:ClientId"] ?? "Ac.Admin";
+var oidcClientSecret = builder.Configuration["AuthForAdmin:ClientSecret"] ?? "Ac.Admin-secret-change-in-production";
 
-builder.Services.ConfigureApplicationCookie(options =>
+builder.Services.AddAuthentication(options =>
 {
-    options.LoginPath = "/account/login";
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+})
+.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+{
+    options.LoginPath = "/challenge-oidc";
     options.AccessDeniedPath = "/account/login";
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
+})
+.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
+{
+    options.Authority = oidcAuthority;
+    options.ClientId = oidcClientId;
+    options.ClientSecret = oidcClientSecret;
+    options.ResponseType = "code";
+    options.SaveTokens = true;
+    options.GetClaimsFromUserInfoEndpoint = true;
+    options.Scope.Add("openid");
+    options.Scope.Add("profile");
+    options.CallbackPath = "/signin-oidc";
+    options.SignedOutCallbackPath = "/signout-callback-oidc";
+    options.RemoteSignOutPath = "/signout-oidc";
+    options.TokenValidationParameters.NameClaimType = "preferred_username";
+    options.TokenValidationParameters.RoleClaimType = "role";
 });
 
 builder.Services.AddAuthorization();
@@ -150,11 +171,20 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 app.UseAntiforgery();
 
-// Endpoint выхода из системы
-app.MapGet("/account/logout", async (SignInManager<UserEntity> signInManager) =>
+// OIDC: редирект на Ac.Auth для входа
+app.MapGet("/challenge-oidc", (HttpContext ctx, string? returnUrl) =>
 {
-    await signInManager.SignOutAsync();
-    return Results.Redirect("/account/login");
+    var redirectUri = string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl;
+    return Results.Challenge(
+        new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = redirectUri },
+        [OpenIdConnectDefaults.AuthenticationScheme]);
+}).AllowAnonymous();
+
+// Выход: локальный sign-out (cookie) + при необходимости редирект на Auth
+app.MapGet("/account/logout", (HttpContext ctx) =>
+{
+    return Results.SignOut(authenticationSchemes: [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme],
+        properties: new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = "/account/login" });
 });
 
 app.MapStaticAssets();

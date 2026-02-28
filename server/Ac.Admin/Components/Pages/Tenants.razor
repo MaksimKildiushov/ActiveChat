@@ -3,8 +3,7 @@
 @rendermode InteractiveServer
 
 @inject ApiDb Db
-@inject UserManager<UserEntity> UserManager
-@inject RoleManager<IdentityRole<Guid>> RoleManager
+@inject IAuthApiClient AuthApi
 @inject ICurrentUserSetter CurrentUserSetter
 
 @using Ac.Domain.Enums
@@ -169,20 +168,21 @@
         try
         {
             var email = Input.Email.Trim();
-
-            var existingUser = await UserManager.FindByEmailAsync(email);
-            if (existingUser is null)
+            if (!string.IsNullOrWhiteSpace(Input.Password) && Input.Password != Input.ConfirmPassword)
             {
-                if (string.IsNullOrWhiteSpace(Input.Password))
-                {
-                    formError = "Пользователь не найден — введите пароль для создания новой учётной записи.";
-                    return;
-                }
-                if (Input.Password != Input.ConfirmPassword)
-                {
-                    formError = "Пароли не совпадают.";
-                    return;
-                }
+                formError = "Пароли не совпадают.";
+                return;
+            }
+
+            var userId = await AuthApi.CreateOrGetUserAsync(
+                email,
+                Input.Password,
+                Input.DisplayName?.Trim(),
+                "TenantUser");
+            if (userId is null)
+            {
+                formError = "Не удалось создать или найти пользователя в Ac.Auth. Убедитесь, что вы вошли в систему и у вас роль Admin.";
+                return;
             }
 
             var authState = await AuthStateTask;
@@ -199,58 +199,15 @@
             Db.Tenants.Add(tenant);
             await Db.SaveChangesAsync();
 
-            string userStatus;
-            UserEntity user;
-
-            if (existingUser is not null)
-            {
-                user = existingUser;
-                userStatus = $"существующий пользователь {user.Email} привязан";
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(Input.Password))
-                {
-                    formError = "Пользователь не найден — введите пароль для создания новой учётной записи.";
-                    return;
-                }
-
-                user = new UserEntity
-                {
-                    UserName = email,
-                    Email = email,
-                    DisplayName = Input.DisplayName.Trim(),
-                    AuthorId = authorGuid,
-                    Created = DateTime.UtcNow,
-                };
-
-                var createResult = await UserManager.CreateAsync(user, Input.Password);
-                if (!createResult.Succeeded)
-                {
-                    Db.Tenants.Remove(tenant);
-                    await Db.SaveChangesAsync();
-                    formError = string.Join(" ", createResult.Errors.Select(e => e.Description));
-                    return;
-                }
-
-                userStatus = $"создан новый пользователь {user.Email}";
-            }
-
-            const string identityRole = "TenantUser";
-            if (!await RoleManager.RoleExistsAsync(identityRole))
-                await RoleManager.CreateAsync(new IdentityRole<Guid> { Name = identityRole });
-            if (!await UserManager.IsInRoleAsync(user, identityRole))
-                await UserManager.AddToRoleAsync(user, identityRole);
-
             Db.TenantUsers.Add(new TenantUserEntity
             {
                 TenantId = tenant.Id,
-                UserId = user.Id,
+                UserId = userId.Value,
                 Role = TenantRole.Owner,
             });
             await Db.SaveChangesAsync();
 
-            successMessage = $"Тенант «{tenant.Inn}» создан, {userStatus}.";
+            successMessage = $"Тенант «{tenant.Inn}» создан, пользователь {email} привязан.";
             formVisible = false;
             Input = new();
             await LoadTenantsAsync();

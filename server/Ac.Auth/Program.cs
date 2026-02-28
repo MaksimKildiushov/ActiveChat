@@ -1,11 +1,15 @@
 using Ac.Auth.Components;
 using Ac.Auth.Components.Account;
+using Ac.Auth.Infrastructure;
 using Ac.Data;
 using Ac.Data.Accessors;
 using Ac.Domain.Entities;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.Validation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,13 +37,14 @@ builder.Configuration
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
-builder.Services.AddSingleton<IDateTimeProvider, SystemClock>();
+builder.Services.AddSingleton<IDateTimeProvider, Ac.Data.Accessors.SystemClock>();
 builder.Services.AddScoped<AuditingInterceptor>();
 
 builder.Services.AddDbContext<ApiDb>((sp, opts) =>
 {
     opts.UseNpgsql(builder.Configuration.GetConnectionString("Default"));
     opts.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
+    opts.UseOpenIddict<Guid>();
 });
 
 // В Development Env ты сразу видишь детали исключения и место в коде.
@@ -73,11 +78,10 @@ builder.Services.AddIdentityCore<UserEntity>(options =>
     {
         options.SignIn.RequireConfirmedAccount = true;
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
-
-        options.Password.RequireDigit = true;
         options.Password.RequiredLength = 8;
-        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequireDigit = true;
         options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = false;        
         options.User.RequireUniqueEmail = true;
     })
     .AddRoles<IdentityRole<Guid>>()
@@ -95,12 +99,51 @@ builder.Services.AddIdentityCore<UserEntity>(options =>
 //    options.SlidingExpiration = true;
 //});
 
-//builder.Services.AddAuthorization();
-#endregion
+builder.Services.AddOpenIddict()
+    .AddCore(options =>
+    {
+        options.UseEntityFrameworkCore()
+            .UseDbContext<ApiDb>()
+            .ReplaceDefaultEntities<Guid>();
+    })
+    .AddServer(options =>
+    {
+        options.SetAuthorizationEndpointUris("connect/authorize")
+            .SetTokenEndpointUris("connect/token");
 
-#region DI
+        options.AllowAuthorizationCodeFlow()
+            .AllowClientCredentialsFlow()
+            .RequireProofKeyForCodeExchange();
 
-//builder.Services.AddSingleton<IEmailSender<UserEntity>, IdentityNoOpEmailSender>();
+        // Шифрование: строка из конфига (OidcServer:EncryptionKey), 32 байта — не файл на диске.
+        options.AddEncryptionKey(new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+            System.Text.Encoding.UTF8.GetBytes(builder.Configuration["OidcServer:EncryptionKey"])));
+        // Подпись: временный dev-сертификат (генерируется/берётся из хранилища, не файл на диске). В проде — AddSigningCertificate/AddSigningKey.
+        options.AddDevelopmentSigningCertificate();
+
+        options.UseAspNetCore()
+            .EnableAuthorizationEndpointPassthrough()
+            .EnableTokenEndpointPassthrough();
+    })
+    .AddValidation(options =>
+    {
+        options.UseLocalServer();
+        options.UseAspNetCore();
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    // Проверка по JWT: схема OpenIddict Validation + claim "role" = "Admin" (в токене от нашего сервера роль идёт как claim "role").
+    options.AddPolicy("BearerAdmin", policy =>
+    {
+        policy.AuthenticationSchemes.Add(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
+        policy.RequireAssertion(ctx => ctx.User.HasClaim(System.Security.Claims.ClaimTypes.Role, "Admin")
+            || ctx.User.HasClaim("role", "Admin"));
+    });
+});
+
+// Регистрация OIDC-клиента Ac.Admin и scope'ов при старте
+builder.Services.AddHostedService<OpenIddictClientSeeder>();
 
 #endregion
 
@@ -121,11 +164,53 @@ else
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
-//???
-//app.UseAuthentication();
-//app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseAntiforgery();
+
+app.MapOpenIddictConnectEndpoints();
+
+// API для Admin: создание пользователя (Bearer token + роль Admin)
+app.MapPost("api/invitations/create-user", async (
+    UserManager<UserEntity> userManager,
+    RoleManager<IdentityRole<Guid>> roleManager,
+    CreateUserRequest body) =>
+{
+    var email = body.Email?.Trim();
+    if (string.IsNullOrEmpty(email))
+        return Results.BadRequest("Email required.");
+
+    var existing = await userManager.FindByEmailAsync(email);
+    if (existing is not null)
+        return Results.Ok(new { userId = existing.Id });
+
+    if (string.IsNullOrEmpty(body.Password) || body.Password.Length < 6)
+        return Results.BadRequest("Password required (min 6) for new user.");
+
+    var user = new UserEntity
+    {
+        UserName = email,
+        Email = email,
+        EmailConfirmed = false,
+        DisplayName = body.DisplayName?.Trim() ?? email,
+        AuthorId = Guid.Empty,
+        Created = DateTime.UtcNow,
+    };
+    var result = await userManager.CreateAsync(user, body.Password);
+    if (!result.Succeeded)
+        return Results.BadRequest(string.Join("; ", result.Errors.Select(e => e.Description)));
+
+    var role = body.Role?.Trim() ?? "TenantUser";
+    if (!string.IsNullOrEmpty(role))
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+        if (!await userManager.IsInRoleAsync(user, role))
+            await userManager.AddToRoleAsync(user, role);
+    }
+    return Results.Ok(new { userId = user.Id });
+}).RequireAuthorization("BearerAdmin");
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
@@ -135,3 +220,5 @@ app.MapRazorComponents<App>()
 app.MapAdditionalIdentityEndpoints();
 
 app.Run();
+
+record CreateUserRequest(string? Email, string? Password, string? DisplayName, string? Role);

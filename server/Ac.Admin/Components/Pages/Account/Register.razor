@@ -3,138 +3,32 @@
 @attribute [AllowAnonymous]
 
 @inject NavigationManager Nav
-@inject UserManager<UserEntity> UserManager
-@inject RoleManager<IdentityRole<Guid>> RoleManager
+@inject IConfiguration Config
 
 <PageTitle>Регистрация — ActiveChat Admin</PageTitle>
 
 <h5 class="text-center mb-4">Создать аккаунт</h5>
 
-@if (registerError is not null)
-{
-    <div class="alert alert-danger small py-2">@registerError</div>
-}
+<p class="text-center text-muted small mb-4">
+    Регистрация выполняется в центральном сервисе авторизации (Ac.Auth).
+</p>
 
-<EditForm method="post" FormName="register" Model="Input" OnValidSubmit="HandleRegister">
-    <DataAnnotationsValidator />
+<div class="d-flex justify-content-center">
+    <a href="@RegisterUrl" class="btn btn-primary">Перейти к регистрации в Ac.Auth</a>
+</div>
 
-    <div class="mb-3">
-        <label class="form-label">Код приглашения</label>
-        <InputText @bind-Value="Input.InviteCode" class="form-control"
-                   autocomplete="off" placeholder="Введите код" />
-        <ValidationMessage For="() => Input.InviteCode" class="text-danger small" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Имя</label>
-        <InputText @bind-Value="Input.DisplayName" class="form-control" placeholder="Иван Иванов" />
-        <ValidationMessage For="() => Input.DisplayName" class="text-danger small" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Email</label>
-        <InputText @bind-Value="Input.Email" type="email" class="form-control"
-                   autocomplete="username" placeholder="admin@example.com" />
-        <ValidationMessage For="() => Input.Email" class="text-danger small" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Пароль</label>
-        <InputText @bind-Value="Input.Password" type="password" class="form-control"
-                   autocomplete="new-password" placeholder="Минимум 6 символов" />
-        <ValidationMessage For="() => Input.Password" class="text-danger small" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Подтвердите пароль</label>
-        <InputText @bind-Value="Input.ConfirmPassword" type="password" class="form-control"
-                   autocomplete="new-password" placeholder="••••••" />
-        <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger small" />
-    </div>
-
-    <div class="mb-4">
-        <label class="form-label">Роль</label>
-        <InputSelect @bind-Value="Input.Role" class="form-select">
-            <option value="">— без роли —</option>
-            <option value="Admin">Admin</option>
-        </InputSelect>
-    </div>
-
-    <button type="submit" class="btn btn-primary w-100">Зарегистрироваться</button>
-</EditForm>
-
-<div class="mt-3 text-center small text-muted">
+<div class="mt-4 text-center small text-muted">
     <a href="/account/login" class="text-decoration-none">Уже есть аккаунт? Войти</a>
 </div>
 
 @code {
-    private RegisterInput _input = new();
-    [SupplyParameterFromForm(FormName = "register")]
-    private RegisterInput Input { get => _input; set => _input = value ?? new(); }
-
-    private string? registerError;
-
-    private const string ValidInviteCode = "HA3M4mLIkIifIWIAu1fe";
-
-    private async Task HandleRegister()
+    private string RegisterUrl
     {
-        if (Input.InviteCode != ValidInviteCode)
+        get
         {
-            registerError = "Неверный код приглашения.";
-            return;
+            var authority = (Config["Infra:AuthBaseUrl"] ?? Config["AuthForAdmin:Authority"])?.TrimEnd('/') ?? "https://localhost:7189";
+            var returnUrl = Nav.ToAbsoluteUri("/account/login?registered=true").ToString();
+            return $"{authority}/Account/Register?ReturnUrl={Uri.EscapeDataString(returnUrl)}";
         }
-
-        if (Input.Password != Input.ConfirmPassword)
-        {
-            registerError = "Пароли не совпадают.";
-            return;
-        }
-
-        var user = new UserEntity
-        {
-            UserName = Input.Email,
-            Email = Input.Email,
-            DisplayName = Input.DisplayName,
-            Created = DateTime.UtcNow,
-            AuthorId = Guid.Empty,
-        };
-
-        var result = await UserManager.CreateAsync(user, Input.Password);
-
-        if (!result.Succeeded)
-        {
-            registerError = string.Join(" ", result.Errors.Select(e => e.Description));
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(Input.Role))
-        {
-            if (!await RoleManager.RoleExistsAsync(Input.Role))
-                await RoleManager.CreateAsync(new IdentityRole<Guid> { Name = Input.Role });
-
-            await UserManager.AddToRoleAsync(user, Input.Role);
-        }
-
-        Nav.NavigateTo("/account/login?registered=true");
-    }
-
-    private sealed class RegisterInput
-    {
-        [Required(ErrorMessage = "Введите код приглашения")]
-        public string InviteCode { get; set; } = "";
-
-        [Required(ErrorMessage = "Введите имя")]
-        public string DisplayName { get; set; } = "";
-
-        [Required(ErrorMessage = "Введите email"), EmailAddress(ErrorMessage = "Некорректный email")]
-        public string Email { get; set; } = "";
-
-        [Required(ErrorMessage = "Введите пароль"), MinLength(6, ErrorMessage = "Минимум 6 символов")]
-        public string Password { get; set; } = "";
-
-        [Required(ErrorMessage = "Подтвердите пароль")]
-        public string ConfirmPassword { get; set; } = "";
-
-        public string Role { get; set; } = "";
     }
 }

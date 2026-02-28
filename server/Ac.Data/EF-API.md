@@ -16,7 +16,7 @@ export ASPNETCORE_ENVIRONMENT=Development
 ## Создание миграций на базе измененых моделей.
 
 ```powershell
-Add-Migration AddEventsNotifyTrigger -o Migrations/Api -Project Ac.Data -StartupProject Ac.Api -Context ApiDb
+Add-Migration AddOpenIdConnect -o Migrations/Api -Project Ac.Data -StartupProject Ac.Api -Context ApiDb
 ```
 
 ```bash

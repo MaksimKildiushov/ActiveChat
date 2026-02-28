@@ -4,6 +4,6 @@
     protected override void OnInitialized()
     {
         var returnUrl = Uri.EscapeDataString(Nav.Uri);
-        Nav.NavigateTo($"/account/login?returnUrl={returnUrl}", forceLoad: true);
+        Nav.NavigateTo($"/challenge-oidc?returnUrl={returnUrl}", forceLoad: true);
     }
 }

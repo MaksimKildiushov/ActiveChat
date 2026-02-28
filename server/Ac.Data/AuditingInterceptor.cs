@@ -12,19 +12,16 @@ public sealed class AuditingInterceptor(
     {
         if (context is null) return;
 
-        var now = clock.UtcNow;
-        var user = currentUser.UserId;
-
         foreach (var entry in context.ChangeTracker.Entries<IBaseEntity>())
         {
             if (entry.State == EntityState.Added)
             {
                 // Не трогаем, если уже выставлено (например, миграции/импорт).
                 if (entry.Property(e => e.Created).CurrentValue == default)
-                    entry.Property(e => e.Created).CurrentValue = now;
+                    entry.Property(e => e.Created).CurrentValue = clock.UtcNow;
 
                 if (entry.Property(e => e.AuthorId).CurrentValue == default)
-                    entry.Property(e => e.AuthorId).CurrentValue = user;
+                    entry.Property(e => e.AuthorId).CurrentValue = currentUser.UserId;
             }
             else if (entry.State == EntityState.Modified)
             {
@@ -32,8 +29,8 @@ public sealed class AuditingInterceptor(
                 entry.Property(e => e.Created).IsModified = false;
                 entry.Property(e => e.AuthorId).IsModified = false;
 
-                entry.Property(e => e.Modified).CurrentValue = now;
-                entry.Property(e => e.ModifierId).CurrentValue = user;
+                entry.Property(e => e.Modified).CurrentValue = clock.UtcNow;
+                entry.Property(e => e.ModifierId).CurrentValue = currentUser.UserId;
             }
         }
     }
