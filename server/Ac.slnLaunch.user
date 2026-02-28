@@ -15,6 +15,10 @@
         "Path": "Ac.Hangfire\\Ac.Hangfire.csproj",
         "Action": "Start",
         "DebugTarget": "jobs ssl"
+      },
+      {
+        "Path": "Ac.Auth\\Ac.Auth.csproj",
+        "Action": "Start"
       }
     ]
   }

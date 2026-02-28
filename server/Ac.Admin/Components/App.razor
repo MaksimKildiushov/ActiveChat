@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -17,6 +17,16 @@
 <body>
     <Routes />
     <ReconnectModal />
+    <script>
+        window.downloadFileFromBase64 = function (filename, base64) {
+            const a = document.createElement('a');
+            a.href = 'data:application/octet-stream;base64,' + base64;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+    </script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

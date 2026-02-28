@@ -1,7 +1,10 @@
 using Ac.Admin.Components;
 using Ac.Admin.Infrastructure;
+using Ac.Application.Services;
+using Ac.Application.Extensions;
 using Ac.Data;
 using Ac.Data.Accessors;
+using Ac.Data.Extensions;
 using Ac.Domain.Entities;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -84,6 +87,15 @@ builder.Services.AddDbContext<ApiDb>((sp, opts) =>
     opts.UseNpgsql(builder.Configuration.GetConnectionString("Default"));
     opts.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
 });
+
+builder.Services.AddDbContext<TenantDb>((sp, opts) =>
+{
+    opts.UseNpgsql(builder.Configuration.GetConnectionString("Default"));
+    opts.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
+});
+
+builder.Services.AddDi();
+builder.Services.AddInfrastructure();
 
 #endregion
 

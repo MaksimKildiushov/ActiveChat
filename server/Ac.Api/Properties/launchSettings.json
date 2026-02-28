@@ -6,7 +6,7 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "dotnetRunMessages": true,
-      "applicationUrl": "https://localhost:7119;http://localhost:5030"
+      "applicationUrl": "https://localhost:7177;http://localhost:5030"
     },
     "api selfhosted": {
       "commandName": "Project",

@@ -1,0 +1,815 @@
+@page "/tenant-clients"
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@using System.Text.Json
+@using System.Text.RegularExpressions
+@using Ac.Application.Contracts.Models
+@using System.Net.Http.Json
+@using Ac.Data
+@using Microsoft.EntityFrameworkCore
+@using ClosedXML.Excel
+
+@inject ApiDb Db
+@inject IConfiguration Configuration
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Клиенты тенанта — ActiveChat Admin</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0">Клиенты тенанта</h4>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header fw-semibold">Выбор тенанта</div>
+    <div class="card-body">
+        @if (tenants.Count == 0 && !isLoadingTenants)
+        {
+            <div class="text-muted small">Нет доступных тенантов. Сначала создайте тенант на странице «Тенанты».</div>
+        }
+        else if (isLoadingTenants)
+        {
+            <div class="text-muted small d-flex align-items-center gap-2">
+                <span class="spinner-border spinner-border-sm"></span> Загрузка списка тенантов…
+            </div>
+        }
+        else
+        {
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label">Тенант (ИНН)</label>
+                    <InputSelect class="form-select" @bind-Value="selectedTenantId">
+                        <option value="">— выберите тенанта —</option>
+                        @foreach (var t in tenants)
+                        {
+                            <option value="@t.Id">@t.Inn</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (selectedTenantId is null)
+{
+    <div class="alert alert-info small">Выберите тенанта, чтобы увидеть его клиентов.</div>
+}
+else if (isLoadingClients)
+{
+    <div class="card">
+        <div class="card-body text-muted small d-flex align-items-center gap-2">
+            <span class="spinner-border spinner-border-sm"></span> Загрузка клиентов…
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-end mb-2">
+        <button type="button" class="btn btn-primary btn-sm" @onclick="ShowImportForm">
+            <span class="bi bi-upload me-1"></span> Загрузить пользователей
+        </button>
+    </div>
+
+    @if (importFormVisible)
+    {
+        <div class="card mb-3 border-primary">
+            <div class="card-header fw-semibold">Загрузка пользователей из файла</div>
+            <div class="card-body">
+                <div class="d-flex flex-column gap-3">
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="DownloadTemplateAsync" disabled="@isDownloadingTemplate">
+                            @if (isDownloadingTemplate)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <span class="bi bi-download me-1"></span> Скачать шаблон
+                        </button>
+                        <span class="text-muted small ms-2">XLSX с базовыми полями и столбцами «Дополнительное поле 1», «Дополнительное поле 2».</span>
+                    </div>
+                    <div>
+                        <label class="form-label small">Загрузить пользователей</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <InputFile class="form-control form-control-sm" accept=".xlsx" OnChange="OnImportFileChanged" />
+                            <button type="button" class="btn btn-primary btn-sm" @onclick="ProcessImportAsync" disabled="@(selectedImportFile is null || isImporting)">
+                                @if (isImporting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Загрузить пользователей
+                            </button>
+                        </div>
+                        @if (importMessage is not null)
+                        {
+                            <div class="alert alert-info small mt-2 mb-0">@importMessage</div>
+                        }
+                        @if (importError is not null)
+                        {
+                            <div class="alert alert-danger small mt-2 mb-0">@importError</div>
+                        }
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-2" @onclick="HideImportForm">Закрыть</button>
+            </div>
+        </div>
+    }
+
+    @if (clients.Count == 0)
+    {
+        <div class="card mb-3">
+            <div class="card-body text-muted small">
+                @if (!string.IsNullOrEmpty(loadClientsError))
+                {
+                    <span>Не удалось загрузить список клиентов: @loadClientsError</span>
+                }
+                else
+                {
+                    <span>У выбранного тенанта пока нет клиентов.</span>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Клиенты тенанта (@clients.Count)</div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>ChannelUserId</th>
+                        <th>OverrideUserId</th>
+                        <th>DisplayName</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>TraceId</th>
+                        <th>Timezone</th>
+                        <th>IsBlocked</th>
+                        <th></th>
+                    </tr>
+                    <tr>
+                        <th></th>
+                        <th><InputText @bind-Value="filterChannelUserId" class="form-control form-control-sm" /></th>
+                        <th><InputText @bind-Value="filterOverrideUserId" class="form-control form-control-sm" /></th>
+                        <th><InputText @bind-Value="filterDisplayName" class="form-control form-control-sm" /></th>
+                        <th><InputText @bind-Value="filterEmail" class="form-control form-control-sm" /></th>
+                        <th><InputText @bind-Value="filterPhone" class="form-control form-control-sm" /></th>
+                        <th><InputText @bind-Value="filterTraceId" class="form-control form-control-sm" /></th>
+                        <th><InputText @bind-Value="filterTimezone" class="form-control form-control-sm" /></th>
+                        <th>
+                            <InputSelect @bind-Value="filterIsBlocked" class="form-select form-select-sm">
+                                <option value="">Все</option>
+                                <option value="true">Да</option>
+                                <option value="false">Нет</option>
+                            </InputSelect>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in FilteredClients)
+                    {
+                        <tr>
+                            <td class="text-muted small">@c.Id</td>
+                            <td>@c.ChannelUserId</td>
+                            <td>@c.OverrideUserId</td>
+                            <td>@c.DisplayName</td>
+                            <td>@c.Email</td>
+                            <td>@c.Phone</td>
+                            <td>@c.TraceId</td>
+                            <td>@c.Timezone</td>
+                            <td>
+                                @if (c.IsBlocked)
+                                {
+                                    <span class="badge bg-danger">Да</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">Нет</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary me-1" @onclick="() => StartEditClient(c.Id)">Редактировать</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => AskDeleteClient(c.Id)">Удалить</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (editingClient is not null)
+    {
+        <div class="card mb-3 border-primary">
+            <div class="card-header fw-semibold">Редактирование клиента #@editingClient.Id</div>
+            <div class="card-body">
+                @if (editError is not null)
+                {
+                    <div class="alert alert-danger small py-2">@editError</div>
+                }
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">ChannelUserId</label>
+                        <InputText @bind-Value="editModel.ChannelUserId" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">OverrideUserId</label>
+                        <InputText @bind-Value="editModel.OverrideUserId" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">DisplayName</label>
+                        <InputText @bind-Value="editModel.DisplayName" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Email</label>
+                        <InputText @bind-Value="editModel.Email" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Phone</label>
+                        <InputText @bind-Value="editModel.Phone" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">TraceId</label>
+                        <InputText @bind-Value="editModel.TraceId" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Timezone</label>
+                        <InputText @bind-Value="editModel.Timezone" class="form-control" />
+                    </div>
+                    <div class="col-md-4 d-flex align-items-center">
+                        <div class="form-check mt-4">
+                            <InputCheckbox @bind-Value="editModel.IsBlocked" class="form-check-input" id="chkEditBlocked" />
+                            <label class="form-check-label" for="chkEditBlocked">Заблокирован</label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+                <h6 class="text-muted mb-2">Дополнительные поля</h6>
+
+                @if (editModel.AdditionalFields.Count == 0)
+                {
+                    <p class="text-muted small">Дополнительные поля пока не заданы.</p>
+                }
+                else
+                {
+                    @foreach (var field in editModel.AdditionalFields)
+                    {
+                        <div class="row g-2 align-items-center mb-2">
+                            <div class="col-md-4">
+                                <InputText @bind-Value="field.Key" class="form-control form-control-sm" placeholder="Имя поля" />
+                            </div>
+                            <div class="col-md-6">
+                                <InputText @bind-Value="field.Value" class="form-control form-control-sm" placeholder="Значение" />
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveAdditionalField(field)">Удалить</button>
+                            </div>
+                        </div>
+                    }
+                }
+
+                <button type="button" class="btn btn-outline-secondary btn-sm mb-3" @onclick="AddAdditionalField">
+                    Добавить дополнительное поле
+                </button>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-primary" @onclick="SaveClientAsync" disabled="@isSavingClient">
+                        @if (isSavingClient)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Сохранить
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CancelEdit">Отмена</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (deleteClientId is not null)
+    {
+        <div class="alert alert-warning d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Удалить клиента #@deleteClientId?</strong>
+                <span class="small d-block">Действие необратимо.</span>
+                @if (deleteError is not null)
+                {
+                    <span class="small text-danger d-block">@deleteError</span>
+                }
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-danger" @onclick="ConfirmDeleteClientAsync" disabled="@isDeletingClient">
+                    @if (isDeletingClient)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Удалить
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelDelete">Отмена</button>
+            </div>
+        </div>
+    }
+    }
+}
+
+@code {
+    private sealed class TenantRow
+    {
+        public int Id { get; set; }
+        public string Inn { get; set; } = "";
+    }
+
+    private readonly List<TenantRow> tenants = [];
+    private readonly List<AdminClientDto> clients = [];
+
+    private bool isLoadingTenants = true;
+    private bool isLoadingClients;
+    private string? loadClientsError;
+
+    private int? _selectedTenantId;
+    private int? selectedTenantId
+    {
+        get => _selectedTenantId;
+        set
+        {
+            if (_selectedTenantId == value)
+                return;
+
+            _selectedTenantId = value;
+            _ = OnTenantChangedAsync(value);
+        }
+    }
+
+    // Фильтры
+    private string? filterChannelUserId;
+    private string? filterOverrideUserId;
+    private string? filterDisplayName;
+    private string? filterEmail;
+    private string? filterPhone;
+    private string? filterTraceId;
+    private string? filterTimezone;
+    private bool? filterIsBlocked;
+
+    private IEnumerable<AdminClientDto> FilteredClients => clients
+        .Where(c => string.IsNullOrWhiteSpace(filterChannelUserId) || (c.ChannelUserId ?? string.Empty).Contains(filterChannelUserId, StringComparison.OrdinalIgnoreCase))
+        .Where(c => string.IsNullOrWhiteSpace(filterOverrideUserId) || (c.OverrideUserId ?? string.Empty).Contains(filterOverrideUserId, StringComparison.OrdinalIgnoreCase))
+        .Where(c => string.IsNullOrWhiteSpace(filterDisplayName) || (c.DisplayName ?? string.Empty).Contains(filterDisplayName, StringComparison.OrdinalIgnoreCase))
+        .Where(c => string.IsNullOrWhiteSpace(filterEmail) || (c.Email ?? string.Empty).Contains(filterEmail, StringComparison.OrdinalIgnoreCase))
+        .Where(c => string.IsNullOrWhiteSpace(filterPhone) || (c.Phone ?? string.Empty).Contains(filterPhone, StringComparison.OrdinalIgnoreCase))
+        .Where(c => string.IsNullOrWhiteSpace(filterTraceId) || (c.TraceId ?? string.Empty).Contains(filterTraceId, StringComparison.OrdinalIgnoreCase))
+        .Where(c => string.IsNullOrWhiteSpace(filterTimezone) || (c.Timezone ?? string.Empty).Contains(filterTimezone, StringComparison.OrdinalIgnoreCase))
+        .Where(c => filterIsBlocked is null || c.IsBlocked == filterIsBlocked.Value);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTenantsAsync();
+    }
+
+    private async Task LoadTenantsAsync()
+    {
+        isLoadingTenants = true;
+
+        var rows = await Db.Tenants
+            .AsNoTracking()
+            .Where(t => t.Inn != null && t.Inn != "")
+            .OrderBy(t => t.Inn)
+            .Select(t => new TenantRow
+            {
+                Id = t.Id,
+                Inn = t.Inn!
+            })
+            .ToListAsync();
+
+        tenants.Clear();
+        tenants.AddRange(rows);
+
+        isLoadingTenants = false;
+    }
+
+    private async Task OnTenantChangedAsync(int? newTenantId)
+    {
+        if (newTenantId is null)
+        {
+            clients.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        await LoadClientsAsync(newTenantId.Value);
+        StateHasChanged();
+    }
+
+    /// <summary>Допустимое имя схемы: t_ и только буквы, цифры, подчёркивание (защита от SQL-инъекций).</summary>
+    private static readonly Regex SchemaNameRegex = new(@"^t_[a-zA-Z0-9_]+$", RegexOptions.Compiled);
+
+    private AdminClientDto? editingClient;
+    private ClientEditModel editModel = new();
+    private string? editError;
+    private bool isSavingClient;
+
+    private int? deleteClientId;
+    private string? deleteError;
+    private bool isDeletingClient;
+
+    private bool importFormVisible;
+    private bool isDownloadingTemplate;
+    private IBrowserFile? selectedImportFile;
+    private bool isImporting;
+    private string? importMessage;
+    private string? importError;
+
+    private async Task<string?> GetSchemaNameAsync(int tenantId)
+    {
+        var tenant = await Db.Tenants
+            .AsNoTracking()
+            .Where(t => t.Id == tenantId && t.Inn != null && t.Inn != "")
+            .Select(t => new { t.Id, t.Inn })
+            .FirstOrDefaultAsync();
+
+        if (tenant is null)
+            return null;
+
+        var schemaName = "t_" + tenant.Inn!.Trim();
+        if (!SchemaNameRegex.IsMatch(schemaName))
+            return null;
+
+        return schemaName;
+    }
+
+    private async Task LoadClientsAsync(int tenantId)
+    {
+        isLoadingClients = true;
+        loadClientsError = null;
+        clients.Clear();
+        editingClient = null;
+        deleteClientId = null;
+        StateHasChanged();
+
+        try
+        {
+            var apiBase = Configuration["Infra:ApiBaseUrl"] ?? "https://localhost:7010";
+            if (Http.BaseAddress is null)
+                Http.BaseAddress = new Uri(apiBase);
+
+            var list = await Http.GetFromJsonAsync<List<AdminClientDto>>(
+                $"tenants/{tenantId}/clients") ?? [];
+
+            clients.AddRange(list);
+        }
+        catch (Exception ex)
+        {
+            loadClientsError = NormalizeErrorMessage("загрузке списка клиентов", ex);
+        }
+        finally
+        {
+            isLoadingClients = false;
+            StateHasChanged();
+        }
+    }
+
+    private void StartEditClient(int clientId)
+    {
+        editError = null;
+        editingClient = clients.FirstOrDefault(c => c.Id == clientId);
+        if (editingClient is null)
+            return;
+
+        editModel = new ClientEditModel
+        {
+            Id = editingClient.Id,
+            ChannelUserId = editingClient.ChannelUserId,
+            OverrideUserId = editingClient.OverrideUserId,
+            DisplayName = editingClient.DisplayName,
+            Email = editingClient.Email,
+            Phone = editingClient.Phone,
+            TraceId = editingClient.TraceId,
+            Timezone = editingClient.Timezone,
+            IsBlocked = editingClient.IsBlocked,
+            AdditionalFields = editingClient.AdditionalFields
+                .Select(kvp => new AdditionalFieldRow { Key = kvp.Key, Value = kvp.Value })
+                .ToList()
+        };
+    }
+
+    private void CancelEdit()
+    {
+        editingClient = null;
+        editError = null;
+    }
+
+    private void AddAdditionalField()
+    {
+        editModel.AdditionalFields.Add(new AdditionalFieldRow());
+    }
+
+    private void RemoveAdditionalField(AdditionalFieldRow field)
+    {
+        editModel.AdditionalFields.Remove(field);
+    }
+
+    private async Task SaveClientAsync()
+    {
+        if (editingClient is null || selectedTenantId is null)
+            return;
+
+        isSavingClient = true;
+        editError = null;
+
+        try
+        {
+            var tenantId = selectedTenantId.Value;
+
+            var apiBase = Configuration["Infra:ApiBaseUrl"] ?? "https://localhost:7010";
+            if (Http.BaseAddress is null)
+                Http.BaseAddress = new Uri(apiBase);
+
+            var additionalDict = editModel.AdditionalFields
+                .Where(f => !string.IsNullOrWhiteSpace(f.Key))
+                .ToDictionary(f => f.Key!, f => f.Value ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+
+            var request = new AdminClientUpdateRequest(
+                ChannelUserId: editModel.ChannelUserId,
+                OverrideUserId: editModel.OverrideUserId,
+                DisplayName: editModel.DisplayName,
+                Email: editModel.Email,
+                Phone: editModel.Phone,
+                TraceId: editModel.TraceId,
+                Timezone: editModel.Timezone,
+                IsBlocked: editModel.IsBlocked,
+                AdditionalFields: additionalDict);
+
+            var response = await Http.PutAsJsonAsync(
+                $"tenants/{tenantId}/clients/{editModel.Id}",
+                request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                editError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+
+            await LoadClientsAsync(tenantId);
+            editingClient = null;
+        }
+        catch (Exception ex)
+        {
+            editError = ex.Message;
+        }
+        finally
+        {
+            isSavingClient = false;
+        }
+    }
+
+    private void AskDeleteClient(int clientId)
+    {
+        deleteClientId = clientId;
+        deleteError = null;
+    }
+
+    private void CancelDelete()
+    {
+        deleteClientId = null;
+        deleteError = null;
+    }
+
+    private async Task ConfirmDeleteClientAsync()
+    {
+        if (deleteClientId is null || selectedTenantId is null)
+            return;
+
+        isDeletingClient = true;
+        deleteError = null;
+
+        try
+        {
+            var tenantId = selectedTenantId.Value;
+
+            var apiBase = Configuration["Infra:ApiBaseUrl"] ?? "https://localhost:7010";
+            if (Http.BaseAddress is null)
+                Http.BaseAddress = new Uri(apiBase);
+
+            var response = await Http.DeleteAsync(
+                $"tenants/{tenantId}/clients/{deleteClientId.Value}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                deleteError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+
+            await LoadClientsAsync(tenantId);
+            deleteClientId = null;
+        }
+        catch (Exception ex)
+        {
+            deleteError = ex.Message;
+        }
+        finally
+        {
+            isDeletingClient = false;
+        }
+    }
+
+    private void ShowImportForm()
+    {
+        importFormVisible = true;
+        importMessage = null;
+        importError = null;
+        selectedImportFile = null;
+    }
+
+    private void HideImportForm()
+    {
+        importFormVisible = false;
+    }
+
+    private void OnImportFileChanged(InputFileChangeEventArgs e)
+    {
+        selectedImportFile = e.FileCount > 0 ? e.GetMultipleFiles(1).FirstOrDefault() : null;
+        importError = null;
+        importMessage = null;
+    }
+
+    private async Task DownloadTemplateAsync()
+    {
+        if (selectedTenantId is null) return;
+        isDownloadingTemplate = true;
+        importError = null;
+        try
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Клиенты");
+            ws.Cell(1, 1).Value = "ChannelUserId";
+            ws.Cell(1, 2).Value = "OverrideUserId";
+            ws.Cell(1, 3).Value = "DisplayName";
+            ws.Cell(1, 4).Value = "Email";
+            ws.Cell(1, 5).Value = "Phone";
+            ws.Cell(1, 6).Value = "TraceId";
+            ws.Cell(1, 7).Value = "Timezone";
+            ws.Cell(1, 8).Value = "IsBlocked";
+            ws.Cell(1, 9).Value = "Дополнительное поле 1";
+            ws.Cell(1, 10).Value = "Дополнительное поле 2";
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            await JS.InvokeVoidAsync("downloadFileFromBase64", "шаблон_клиентов.xlsx", base64);
+        }
+        catch (Exception ex)
+        {
+            importError = ex.Message;
+        }
+        finally
+        {
+            isDownloadingTemplate = false;
+        }
+    }
+
+    private async Task ProcessImportAsync()
+    {
+        if (selectedImportFile is null || selectedTenantId is null) return;
+        var schemaName = await GetSchemaNameAsync(selectedTenantId.Value);
+        if (schemaName is null)
+        {
+            importError = "Не удалось определить схему тенанта.";
+            return;
+        }
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdStr, out var authorId))
+            authorId = Guid.Empty;
+
+        isImporting = true;
+        importError = null;
+        importMessage = null;
+        try
+        {
+            await using var stream = selectedImportFile.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+            using var wb = new XLWorkbook(ms);
+            var ws = wb.Worksheets.First();
+            var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+            var lastColUsed = ws.LastColumnUsed()?.ColumnNumber() ?? 10;
+            var colError = lastColUsed + 1;
+            if (string.IsNullOrWhiteSpace(ws.Cell(1, colError).GetString()))
+                ws.Cell(1, colError).Value = "Ошибка";
+
+            var additionalColumns = new List<(int Col, string Header)>();
+            for (var col = 9; col < colError; col++)
+            {
+                var header = GetCellString(ws, 1, col);
+                if (!string.IsNullOrWhiteSpace(header))
+                    additionalColumns.Add((col, header!));
+            }
+
+            var rows = new List<AdminClientImportRowDto>();
+            for (var row = 2; row <= lastRow; row++)
+            {
+                var isBlockedStr = GetCellString(ws, row, 8);
+                var isBlocked = string.Equals(isBlockedStr, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(isBlockedStr, "да", StringComparison.OrdinalIgnoreCase) || string.Equals(isBlockedStr, "true", StringComparison.OrdinalIgnoreCase);
+
+                var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (col, header) in additionalColumns)
+                {
+                    var value = GetCellString(ws, row, col);
+                    if (!string.IsNullOrWhiteSpace(value))
+                        dict[header.Trim()] = value!;
+                }
+
+                rows.Add(new AdminClientImportRowDto(
+                    RowIndex: row,
+                    ChannelUserId: GetCellString(ws, row, 1),
+                    OverrideUserId: GetCellString(ws, row, 2),
+                    DisplayName: GetCellString(ws, row, 3),
+                    Email: GetCellString(ws, row, 4),
+                    Phone: GetCellString(ws, row, 5),
+                    TraceId: GetCellString(ws, row, 6),
+                    Timezone: GetCellString(ws, row, 7),
+                    IsBlocked: isBlocked,
+                    AdditionalFields: dict));
+            }
+
+            var apiBase = Configuration["Infra:ApiBaseUrl"] ?? "https://localhost:7010";
+            if (Http.BaseAddress is null)
+                Http.BaseAddress = new Uri(apiBase);
+
+            var response = await Http.PostAsJsonAsync(
+                $"tenants/{selectedTenantId.Value}/clients/import",
+                rows);
+
+            var importResult = await response.Content.ReadFromJsonAsync<AdminClientImportResultDto>()
+                               ?? new AdminClientImportResultDto(Array.Empty<AdminClientImportRowResultDto>());
+
+            foreach (var r in importResult.RowResults)
+                ws.Cell(r.RowIndex, colError).Value = r.Error ?? "";
+
+            var totalRows = lastRow - 1;
+            var errorCount = importResult.RowResults.Count(r => !string.IsNullOrWhiteSpace(r.Error));
+
+            using var outMs = new MemoryStream();
+            wb.SaveAs(outMs);
+            var base64 = Convert.ToBase64String(outMs.ToArray());
+            await JS.InvokeVoidAsync("downloadFileFromBase64", "результат_загрузки_клиентов.xlsx", base64);
+            importMessage = $"Скачан файл с результатами. Обработано строк: {totalRows}. Ошибок: {errorCount}.";
+            await LoadClientsAsync(selectedTenantId.Value);
+        }
+        catch (Exception ex)
+        {
+            importError = ex.Message;
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private static string? GetCellString(IXLWorksheet ws, int row, int col)
+    {
+        var v = ws.Cell(row, col).GetString();
+        return string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    }
+
+    private sealed class ClientEditModel
+    {
+        public int Id { get; set; }
+        public string? ChannelUserId { get; set; }
+        public string? OverrideUserId { get; set; }
+        public string? DisplayName { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? TraceId { get; set; }
+        public string? Timezone { get; set; }
+        public bool IsBlocked { get; set; }
+        public List<AdditionalFieldRow> AdditionalFields { get; set; } = [];
+    }
+
+    private sealed class AdditionalFieldRow
+    {
+        public string? Key { get; set; }
+        public string? Value { get; set; }
+    }
+
+    private static string NormalizeErrorMessage(string action, Exception ex)
+    {
+        // Приводим типичные сетевые ошибки к более понятным сообщениям без лишних деталей.
+        if (ex is HttpRequestException)
+            return $"ошибка подключения к API при {action}. Проверьте, что бэкенд API запущен.";
+
+        return $"внутренняя ошибка при {action}: {ex.Message}";
+    }
+}
+

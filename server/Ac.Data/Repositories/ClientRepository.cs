@@ -17,6 +17,10 @@ public class ClientRepository(TenantDb db)
     public Task<ClientEntity?> FindByPhoneAsync(string phone, CancellationToken ct = default)
         => db.Clients.FirstOrDefaultAsync(c => c.Phone != null && c.Phone == phone, ct);
 
+    public Task<ClientEntity?> FindByEmailAndPhoneAsync(string email, string? phone, CancellationToken ct = default)
+        => db.Clients.FirstOrDefaultAsync(
+            c => c.Email != null && c.Email == email && c.Phone == phone, ct);
+
     public async Task<ClientEntity> CreateAsync(ClientEntity client, CancellationToken ct = default)
     {
         db.Clients.Add(client);

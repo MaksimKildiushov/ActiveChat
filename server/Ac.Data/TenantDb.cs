@@ -34,6 +34,10 @@ public class TenantDb : DbContext
         _schemaNameForDesignTime = schemaNameForDesignTime ?? throw new ArgumentNullException(nameof(schemaNameForDesignTime));
     }
 
+    /// <summary>Для контроля чтобы ни одна команда из приложения не выполнялась без AuditingInterceptor.</summary>
+    public TenantDb(DbContextOptions<TenantDb> options) : this(options, DesignTimeSchema)
+        => throw new NotImplementedException("TenantDb запрещено использовать без AuditingInterceptor (error 0856270226).");
+
     public DbSet<TenantEntity> Tenants => Set<TenantEntity>();
     public DbSet<ChannelEntity> Channels => Set<ChannelEntity>();
     public DbSet<ConversationEntity> Conversations => Set<ConversationEntity>();

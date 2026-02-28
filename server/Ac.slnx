@@ -20,5 +20,8 @@
   </Folder>
   <Project Path="Ac.Admin/Ac.Admin.csproj" Id="0382217f-f528-496a-bc6e-48f44362930c" />
   <Project Path="Ac.Api/Ac.Api.csproj" />
+  <Project Path="Ac.Auth/Ac.Auth.csproj" Id="788dba33-6dfa-4b53-9a80-cd4166732eb2">
+    <BuildType Solution="Selfhosted|*" Project="Debug" />
+  </Project>
   <Project Path="Ac.Hangfire/Ac.Hangfire.csproj" Id="355a16dc-783a-43de-8571-ec300b6b13f8" />
 </Solution>
