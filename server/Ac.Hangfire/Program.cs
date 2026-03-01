@@ -3,10 +3,12 @@ using Ac.Data;
 using Ac.Data.Accessors;
 using Ac.Data.Extensions;
 using Ac.Hangfire.BackgroundServices;
+using Ac.Hangfire.Jobs;
 using Ac.Hangfire.Mock;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.Core;
 
 var builder = WebApplication.CreateBuilder();
 
@@ -39,6 +41,15 @@ builder.Services.AddDbContext<TenantDb>((sp, opts) =>
     opts.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
 });
 
+// OpenIddict Core — для доступа к IOpenIddictTokenManager/IOpenIddictAuthorizationManager (очистка токенов).
+builder.Services.AddOpenIddict()
+    .AddCore(options =>
+    {
+        options.UseEntityFrameworkCore()
+            .UseDbContext<ApiDb>()
+            .ReplaceDefaultEntities<Guid>();
+    });
+
 builder.Services.AddInfrastructure();
 
 #endregion
@@ -62,11 +73,19 @@ GlobalJobFilters.Filters.Add(new AutomaticRetryAttribute { Attempts = 3 });
 
 builder.Services.AddDi();
 
+builder.Services.AddScoped<OpenIddictTokenPruneJob>();
+
 // Фоновые сервисы: NOTIFY-слушатель и пуллинг как бекап
 builder.Services.AddHostedService<EventListenerService>();
 builder.Services.AddHostedService<EventPollingService>();
 
 var app = builder.Build();
+
+// Еженедельная очистка OpenIddict: токены и авторизации старше месяца.
+RecurringJob.AddOrUpdate<OpenIddictTokenPruneJob>(
+    "openiddict-prune-tokens",
+    j => j.ExecuteAsync(CancellationToken.None),
+    Cron.Weekly());
 
 app.MapGet("/", () => "Ac.Hangfire — Event listener and polling are running.");
 
