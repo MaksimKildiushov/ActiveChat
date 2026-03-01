@@ -124,6 +124,21 @@ builder.Services.AddAuthentication(options =>
     options.AccessDeniedPath = "/account/access-denied";
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
+    // При десериализации cookie RoleClaimType не восстанавливается (остаётся "role" из OIDC), поэтому
+    // IsInRole("Admin") не находит claim с типом ClaimTypes.Role. Подменяем principal на identity с RoleClaimType = ClaimTypes.Role.
+    options.Events = new CookieAuthenticationEvents
+    {
+        OnValidatePrincipal = ctx =>
+        {
+            if (ctx.Principal?.Identity is ClaimsIdentity oldId && oldId.RoleClaimType != ClaimTypes.Role)
+            {
+                var newId = new ClaimsIdentity(oldId.Claims, oldId.AuthenticationType, oldId.NameClaimType, ClaimTypes.Role);
+                ctx.Principal = new ClaimsPrincipal(newId);
+                ctx.ShouldRenew = true;
+            }
+            return Task.CompletedTask;
+        },
+    };
 })
 .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
@@ -140,16 +155,39 @@ builder.Services.AddAuthentication(options =>
     options.RemoteSignOutPath = "/signout-oidc";
     options.TokenValidationParameters.NameClaimType = "preferred_username";
     options.TokenValidationParameters.RoleClaimType = "role";
-    // Роль в id_token приходит как claim "role". При сохранении в cookie RoleClaimType не сериализуется,
+    // Маппинг ролей из userinfo (Auth возвращает role и role_list)
+    options.ClaimActions.MapUniqueJsonKey(ClaimTypes.Role, "role");
+    options.ClaimActions.MapUniqueJsonKey("role", "role");
+    // Роль в id_token/userinfo приходит как "role". При сохранении в cookie RoleClaimType не сериализуется,
     // поэтому после чтения cookie [Authorize(Roles = "Admin")] не видит роль. Дублируем в ClaimTypes.Role.
     options.Events = new OpenIdConnectEvents
     {
         OnTokenValidated = ctx =>
         {
-            if (ctx.Principal?.Identity is ClaimsIdentity identity)
+            var principal = ctx.Principal;
+            if (principal?.Identity is not ClaimsIdentity identity)
+                return Task.CompletedTask;
+            // Собираем роли из всех возможных claim types (id_token может использовать "role" или URI)
+            var roleValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var claim in principal.Claims)
             {
-                foreach (var roleClaim in ctx.Principal.FindAll("role").ToList())
-                    identity.AddClaim(new Claim(ClaimTypes.Role, roleClaim.Value));
+                if (string.Equals(claim.Type, "role", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(claim.Type, ClaimTypes.Role, StringComparison.Ordinal)
+                    || claim.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))
+                    roleValues.Add(claim.Value);
+            }
+            foreach (var value in roleValues)
+                identity.AddClaim(new Claim(ClaimTypes.Role, value));
+            // Лог для отладки (в Development)
+            if (ctx.HttpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Hosting.IHostEnvironment)) is Microsoft.Extensions.Hosting.IHostEnvironment env
+                && env.IsDevelopment())
+            {
+                var logger = ctx.HttpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Logging.ILoggerFactory)) as Microsoft.Extensions.Logging.ILoggerFactory;
+                logger?.CreateLogger("Ac.Admin.OIDC").LogInformation(
+                    "OnTokenValidated: User={Name}, role claims: [{Roles}], added ClaimTypes.Role: [{Added}]",
+                    identity.Name,
+                    string.Join(", ", principal.Claims.Where(c => c.Type.Contains("role", StringComparison.OrdinalIgnoreCase)).Select(c => c.Type + "=" + c.Value)),
+                    string.Join(", ", roleValues));
             }
             return Task.CompletedTask;
         },

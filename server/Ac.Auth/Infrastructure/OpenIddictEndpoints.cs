@@ -143,12 +143,16 @@ public static class OpenIddictEndpoints
         var user = await userManager.FindByIdAsync(result.Principal!.GetClaim(Claims.Subject)!);
         if (user is null)
             return Results.NotFound();
+        var roles = await userManager.GetRolesAsync(user);
+        var roleList = roles.ToList();
         return Results.Ok(new
         {
             sub = user.Id.ToString(),
             name = user.UserName ?? user.Email,
             email = user.Email,
-            preferred_username = user.UserName ?? user.Email
+            preferred_username = user.UserName ?? user.Email,
+            role = roleList.Count > 0 ? roleList[0] : (string?)null,
+            role_list = roleList
         });
     }
 }

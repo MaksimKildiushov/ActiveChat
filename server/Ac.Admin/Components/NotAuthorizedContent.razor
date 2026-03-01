@@ -1,6 +1,7 @@
 @layout AuthLayout
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
+@inject ILogger<NotAuthorizedContent> Logger
 
 <PageTitle>Нет доступа — ActiveChat Admin</PageTitle>
 
@@ -43,6 +44,10 @@ else
             ?? _authState.User.FindFirst("email")?.Value
             ?? _authState.User.FindFirst("preferred_username")?.Value
             ?? "пользователь";
+        // Лог при отказе в доступе: все claims и IsInRole("Admin") — чтобы понять, почему роль не срабатывает
+        var claimsStr = string.Join("; ", _authState.User.Claims.Select(c => c.Type + "=" + c.Value));
+        Logger.LogWarning("Access denied: User={Name}, IsInRole(Admin)={IsAdmin}, Claims: [{Claims}]",
+            _userDisplay, _authState.User.IsInRole("Admin"), claimsStr);
     }
 
     private static string SwitchAccountUrl => "/account/switch";
