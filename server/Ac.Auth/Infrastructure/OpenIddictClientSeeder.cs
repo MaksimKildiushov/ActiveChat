@@ -67,6 +67,32 @@ public sealed class OpenIddictClientSeeder(
                 Requirements = { Requirements.Features.ProofKeyForCodeExchange }
             }, cancellationToken);
         }
+
+        // Клиент для страницы «Создание JWT токенов» (redirect_uri на тот же Auth)
+        const string tokensClientId = "Ac.Auth.Tokens";
+        var tokensRedirectUri = authority + "/tokens/callback";
+        var tokensSecret = configuration["OidcServer:TokensClientSecret"] ?? "Ac.Auth.Tokens-secret-change-in-production";
+        if (await appManager.FindByClientIdAsync(tokensClientId, cancellationToken) is null)
+        {
+            await appManager.CreateAsync(new OpenIddictApplicationDescriptor
+            {
+                ClientId = tokensClientId,
+                ClientSecret = tokensSecret,
+                DisplayName = "Auth — создание токенов",
+                ConsentType = ConsentTypes.Implicit,
+                Permissions =
+                {
+                    Permissions.Endpoints.Authorization,
+                    Permissions.Endpoints.Token,
+                    Permissions.GrantTypes.AuthorizationCode,
+                    Permissions.Prefixes.Scope + Scopes.OpenId,
+                    Permissions.Prefixes.Scope + Scopes.Profile,
+                    Permissions.ResponseTypes.Code
+                },
+                RedirectUris = { new Uri(tokensRedirectUri) },
+                Requirements = { Requirements.Features.ProofKeyForCodeExchange }
+            }, cancellationToken);
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

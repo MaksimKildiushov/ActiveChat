@@ -77,6 +77,14 @@ public class ApiDb(DbContextOptions<ApiDb> options)
         modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("AspNetUserTokens", "auth");
         modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("AspNetRoleClaims", "auth");
 
+        // Таблицы OpenIddict — в той же схеме auth
+        const string authSchema = "auth";
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (entityType.Name.StartsWith("OpenIddict.EntityFrameworkCore.Models.", StringComparison.Ordinal))
+                entityType.SetSchema(authSchema);
+        }
+
         #endregion
 
         #region AspNetUsers column order

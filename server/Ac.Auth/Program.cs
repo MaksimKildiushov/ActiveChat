@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Ac.Auth.Components;
 using Ac.Auth.Components.Account;
 using Ac.Auth.Infrastructure;
@@ -133,12 +134,11 @@ builder.Services.AddOpenIddict()
 
 builder.Services.AddAuthorization(options =>
 {
-    // Проверка по JWT: схема OpenIddict Validation + claim "role" = "Admin" (в токене от нашего сервера роль идёт как claim "role").
+    // Проверка по JWT: в токене роль добавляется как ClaimTypes.Role.
     options.AddPolicy("BearerAdmin", policy =>
     {
         policy.AuthenticationSchemes.Add(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
-        policy.RequireAssertion(ctx => ctx.User.HasClaim(System.Security.Claims.ClaimTypes.Role, "Admin")
-            || ctx.User.HasClaim("role", "Admin"));
+        policy.RequireRole("Admin");
     });
 });
 
@@ -228,6 +228,115 @@ app.MapPost("api/invitations/create-user", async (
     }
     return Results.Ok(new { userId = user.Id });
 }).RequireAuthorization("BearerAdmin");
+
+// --- Страница создания JWT токенов (Authorization Code + PKCE) ---
+const string TokensClientId = "Ac.Auth.Tokens";
+const string TokensCookieName = "TokensCodeVerifier";
+
+app.MapPost("tokens/authorize", async (
+    HttpContext ctx,
+    IConfiguration config) =>
+{
+    var authority = (config["Infra:AuthBaseUrl"] ?? config["OidcServer:Authority"])?.TrimEnd('/')
+        ?? $"{ctx.Request.Scheme}://{ctx.Request.Host}";
+    var redirectUri = authority + "/tokens/callback";
+    var state = Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).Replace("+", "-").Replace("/", "_").TrimEnd('=');
+    var codeVerifier = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).Replace("+", "-").Replace("/", "_").TrimEnd('=');
+    var challengeBytes = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(codeVerifier));
+    var codeChallenge = Convert.ToBase64String(challengeBytes).Replace("+", "-").Replace("/", "_").TrimEnd('=');
+    ctx.Response.Cookies.Append(TokensCookieName, codeVerifier, new CookieOptions
+    {
+        Path = "/tokens",
+        MaxAge = TimeSpan.FromMinutes(5),
+        HttpOnly = true,
+        SameSite = SameSiteMode.Lax,
+        Secure = !ctx.Request.Host.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+    });
+    var authorizeUrl = authority + "/connect/authorize?" + new FormUrlEncodedContent(new Dictionary<string, string>
+    {
+        ["client_id"] = TokensClientId,
+        ["redirect_uri"] = redirectUri,
+        ["response_type"] = "code",
+        ["scope"] = "openid profile",
+        ["state"] = state,
+        ["code_challenge"] = codeChallenge,
+        ["code_challenge_method"] = "S256"
+    }.Select(p => new KeyValuePair<string, string>(p.Key, p.Value))).ReadAsStringAsync().Result;
+    return Results.Redirect(authorizeUrl);
+}).RequireAuthorization();
+
+app.MapGet("tokens/callback", async (
+    HttpContext ctx,
+    IConfiguration config,
+    string? code,
+    string? state,
+    string? error) =>
+{
+    if (!string.IsNullOrEmpty(error))
+    {
+        return Results.Content(
+            $"""
+            <!DOCTYPE html><html><head><meta charset="utf-8"><title>Ошибка</title></head><body>
+            <p>Ошибка: {System.Net.WebUtility.HtmlEncode(error)}</p>
+            <a href="/tokens">Вернуться к созданию токена</a>
+            </body></html>
+            """,
+            "text/html; charset=utf-8");
+    }
+    if (string.IsNullOrEmpty(code) || !ctx.Request.Cookies.TryGetValue(TokensCookieName, out var codeVerifier))
+    {
+        return Results.Redirect("/tokens");
+    }
+    ctx.Response.Cookies.Delete(TokensCookieName, new CookieOptions { Path = "/tokens" });
+    var authority = (config["Infra:AuthBaseUrl"] ?? config["OidcServer:Authority"])?.TrimEnd('/')
+        ?? $"{ctx.Request.Scheme}://{ctx.Request.Host}";
+    var redirectUri = authority + "/tokens/callback";
+    var clientSecret = config["OidcServer:TokensClientSecret"] ?? "Ac.Auth.Tokens-secret-change-in-production";
+    var tokenUrl = authority + "/connect/token";
+    using var http = new HttpClient();
+    var form = new Dictionary<string, string>
+    {
+        ["grant_type"] = "authorization_code",
+        ["code"] = code,
+        ["redirect_uri"] = redirectUri,
+        ["client_id"] = TokensClientId,
+        ["client_secret"] = clientSecret,
+        ["code_verifier"] = codeVerifier!
+    };
+    var req = new HttpRequestMessage(HttpMethod.Post, tokenUrl)
+    {
+        Content = new FormUrlEncodedContent(form)
+    };
+    var response = await http.SendAsync(req);
+    var body = await response.Content.ReadAsStringAsync();
+    if (!response.IsSuccessStatusCode)
+    {
+        return Results.Content(
+            $"""
+            <!DOCTYPE html><html><head><meta charset="utf-8"><title>Ошибка обмена кода</title></head><body>
+            <p>Ошибка {response.StatusCode}: {System.Net.WebUtility.HtmlEncode(body)}</p>
+            <a href="/tokens">Вернуться к созданию токена</a>
+            </body></html>
+            """,
+            "text/html; charset=utf-8");
+    }
+    using var doc = System.Text.Json.JsonDocument.Parse(body);
+    var accessToken = doc.RootElement.TryGetProperty("access_token", out var at) ? at.GetString() : "";
+    var expiresIn = doc.RootElement.TryGetProperty("expires_in", out var ex) ? ex.GetInt32() : 0;
+    var tokenHtml = System.Net.WebUtility.HtmlEncode(accessToken ?? "");
+    var expiresText = expiresIn > 0 ? $"Срок действия: {expiresIn} сек." : "";
+    return Results.Content(
+        $"""
+        <!DOCTYPE html><html><head><meta charset="utf-8"><title>JWT токен создан</title></head><body>
+        <h2>JWT токен создан</h2>
+        <p>{expiresText}</p>
+        <textarea id="t" readonly rows="6" style="width:100%;">{tokenHtml}</textarea>
+        <br><button onclick="navigator.clipboard.writeText(document.getElementById('t').value)">Скопировать</button>
+        <a href="/tokens">Создать ещё</a>
+        </body></html>
+        """,
+        "text/html; charset=utf-8");
+}).AllowAnonymous();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

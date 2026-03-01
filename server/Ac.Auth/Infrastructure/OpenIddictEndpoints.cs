@@ -1,7 +1,9 @@
 using System.Security.Claims;
+using Ac.Data;
 using Ac.Domain.Entities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
@@ -60,10 +62,10 @@ public static class OpenIddictEndpoints
         identity.SetClaim(Claims.PreferredUsername, user.UserName ?? user.Email);
         var roles = await signInManager.UserManager.GetRolesAsync(user);
         foreach (var role in roles)
-            identity.AddClaim(new System.Security.Claims.Claim(OpenIddictConstants.Claims.Role, role));
+            identity.AddClaim(new System.Security.Claims.Claim(ClaimTypes.Role, role));
         identity.SetDestinations(static c => c.Type switch
         {
-            Claims.Name or Claims.PreferredUsername or Claims.Role => [Destinations.AccessToken, Destinations.IdentityToken],
+            Claims.Name or Claims.PreferredUsername or ClaimTypes.Role => [Destinations.AccessToken, Destinations.IdentityToken],
             _ => [Destinations.AccessToken]
         });
 
@@ -79,7 +81,8 @@ public static class OpenIddictEndpoints
         UserManager<UserEntity> userManager,
         IOpenIddictApplicationManager appManager,
         IOpenIddictAuthorizationManager authManager,
-        IOpenIddictTokenManager tokenManager)
+        IOpenIddictTokenManager tokenManager,
+        ApiDb db)
     {
         var request = ctx.GetOpenIddictRequest();
         if (request is null)
@@ -108,10 +111,22 @@ public static class OpenIddictEndpoints
             identity.SetClaim(Claims.PreferredUsername, user.UserName ?? user.Email);
             var roles = await userManager.GetRolesAsync(user);
             foreach (var r in roles)
-                identity.AddClaim(new System.Security.Claims.Claim(OpenIddictConstants.Claims.Role, r));
+                identity.AddClaim(new System.Security.Claims.Claim(ClaimTypes.Role, r));
+            // email уже в Claims.Email; добавляем tenantId и schema_name из первого тенанта пользователя
+            var firstMembership = await db.TenantUsers
+                .AsNoTracking()
+                .Include(tu => tu.Tenant)
+                .Where(tu => tu.UserId == user.Id)
+                .FirstOrDefaultAsync();
+            if (firstMembership is not null)
+            {
+                identity.AddClaim(new System.Security.Claims.Claim("tenantId", firstMembership.TenantId.ToString()));
+                identity.AddClaim(new System.Security.Claims.Claim("schema_name", "t_" + firstMembership.Tenant.Inn.Trim()));
+            }
             identity.SetDestinations(static c => c.Type switch
             {
-                Claims.Name or Claims.PreferredUsername or Claims.Role => [Destinations.AccessToken, Destinations.IdentityToken],
+                Claims.Name or Claims.PreferredUsername or ClaimTypes.Role => [Destinations.AccessToken, Destinations.IdentityToken],
+                "tenantId" or "schema_name" => [Destinations.AccessToken],
                 _ => [Destinations.AccessToken]
             });
             var principal = new ClaimsPrincipal(identity);

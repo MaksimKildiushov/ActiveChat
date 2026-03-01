@@ -5,10 +5,10 @@ using Ac.Data;
 using Ac.Data.Accessors;
 using Ac.Data.Extensions;
 using Ac.Domain.Entities;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using OpenIddict.Validation.AspNetCore;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -81,26 +81,19 @@ void ConfigureServices(IServiceCollection services, IConfiguration cfg)
     .AddEntityFrameworkStores<ApiDb>()
     .AddDefaultTokenProviders();
 
-    var jwtSettings = cfg.GetSection("Jwt");
-    var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]
-        ?? throw new InvalidOperationException("Jwt:Key is not configured."));
+    var authBaseUrl = (cfg["Infra:AuthBaseUrl"] ?? "https://localhost:7189").TrimEnd('/');
+    var encryptionKey = cfg["OidcServer:EncryptionKey"] ?? "change-me-32-bytes-key-for-aes256!!";
 
-    services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
+    services.AddOpenIddict()
+        .AddValidation(options =>
         {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwtSettings["Issuer"],
-                ValidAudience = jwtSettings["Audience"],
-                IssuerSigningKey = new SymmetricSecurityKey(key),
-                ClockSkew = TimeSpan.Zero,
-            };
+            options.SetIssuer(authBaseUrl);
+            options.AddEncryptionKey(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(encryptionKey)));
+            options.UseSystemNetHttp();
+            options.UseAspNetCore();
         });
 
+    services.AddAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
     services.AddAuthorization();
 
     #endregion

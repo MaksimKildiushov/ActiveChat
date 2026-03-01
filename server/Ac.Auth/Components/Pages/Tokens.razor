@@ -1,0 +1,16 @@
+@page "/tokens"
+
+@using Microsoft.AspNetCore.Authorization
+
+@attribute [Authorize]
+
+<PageTitle>Создание JWT токена</PageTitle>
+
+<h1>Создание JWT токена</h1>
+
+<p>Нажмите кнопку ниже, чтобы получить новый access token для использования в API (Bearer).</p>
+
+<form method="post" action="tokens/authorize">
+    <AntiforgeryToken />
+    <button type="submit" class="btn btn-primary">Создать токен</button>
+</form>
