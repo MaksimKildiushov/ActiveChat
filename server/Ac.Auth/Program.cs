@@ -171,6 +171,23 @@ app.UseAntiforgery();
 
 app.MapOpenIddictConnectEndpoints();
 
+// Выход из сессии Auth (для «войти под другой учётной записью» в Admin). Редирект только на Admin base.
+app.MapGet("connect/logout", async (
+    HttpContext ctx,
+    SignInManager<UserEntity> signInManager,
+    IConfiguration config,
+    string? post_logout_redirect_uri) =>
+{
+    await signInManager.SignOutAsync();
+    var adminRedirectUri = config["OidcServer:AdminRedirectUri"] ?? "";
+    var allowedBase = adminRedirectUri.Replace("/signin-oidc", "", StringComparison.OrdinalIgnoreCase).TrimEnd('/');
+    if (string.IsNullOrEmpty(post_logout_redirect_uri) || string.IsNullOrEmpty(allowedBase))
+        return Results.Redirect("/");
+    if (!post_logout_redirect_uri.StartsWith(allowedBase, StringComparison.OrdinalIgnoreCase))
+        return Results.Redirect("/");
+    return Results.Redirect(post_logout_redirect_uri);
+}).AllowAnonymous();
+
 // API для Admin: создание пользователя (Bearer token + роль Admin)
 app.MapPost("api/invitations/create-user", async (
     UserManager<UserEntity> userManager,

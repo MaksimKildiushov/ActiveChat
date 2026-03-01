@@ -1,0 +1,49 @@
+@page "/account/access-denied"
+@layout AuthLayout
+@attribute [AllowAnonymous]
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+
+<PageTitle>Нет доступа — ActiveChat Admin</PageTitle>
+
+@if (_authState is null)
+{
+    <div class="text-center text-muted">Проверка доступа…</div>
+}
+else if (!_authState.User.Identity?.IsAuthenticated == true)
+{
+    <p class="text-muted small">Перенаправление на страницу входа…</p>
+}
+else
+{
+    <h5 class="text-center mb-4">Нет доступа</h5>
+    <div class="text-center">
+        <p class="text-body mb-2">
+            Вы вошли как <strong>@_userDisplay</strong>
+        </p>
+        <p class="text-muted small mb-4">
+            Простите, у вас нет доступа к этой странице.
+        </p>
+        <a href="/account/switch" class="btn btn-outline-primary">Войти под другой учётной записью</a>
+    </div>
+}
+
+@code {
+    private AuthenticationState? _authState;
+    private string _userDisplay = "пользователь";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (_authState?.User.Identity?.IsAuthenticated != true)
+        {
+            var returnUrl = Uri.EscapeDataString(Nav.Uri);
+            Nav.NavigateTo($"/challenge-oidc?returnUrl={returnUrl}", forceLoad: true);
+            return;
+        }
+        _userDisplay = _authState.User.Identity.Name
+            ?? _authState.User.FindFirst("email")?.Value
+            ?? _authState.User.FindFirst("preferred_username")?.Value
+            ?? "пользователь";
+    }
+}
